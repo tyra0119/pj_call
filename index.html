@@ -166,8 +166,20 @@
   .msg{margin-top:14px;padding:12px 14px;border-radius:10px;font-size:17px;font-weight:700;
     background:#fdeaea;color:#6b1414;border:2px solid #d9a5a5}
   .msg.ok{background:#e7f4ec;color:#14532d;border-color:#8fc3a5}
-  .setup input[type=tel]{width:100%;padding:10px;font-size:16px;font-family:inherit;
-    border:2px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  .setup input[type=tel],.setup input[type=text]{width:100%;padding:10px;font-size:16px;
+    font-family:inherit;border:2px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  /* 行き先は自由に足し引きできる。事業者や家庭ごとに要るものは違う。 */
+  .prow{display:grid;grid-template-columns:64px 1fr 34px;gap:6px;align-items:center;
+    margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed var(--line)}
+  .prow select.picon{padding:8px 4px;font-size:19px;text-align:center}
+  .prow input.plabel{grid-column:2}
+  .prow select.pstop{grid-column:1 / span 2}
+  .prow input.pitems{grid-column:1 / span 2;font-size:14px}
+  .prow button.pdel{grid-row:1 / span 3;grid-column:3;height:100%;border:2px solid var(--line);
+    background:#fff;color:var(--muted);border-radius:8px;font-size:16px;font-family:inherit;cursor:pointer}
+  .prow button.pdel:hover{border-color:#c48b8b;color:#8a1f1f}
+  .addbtn{width:100%;margin-top:2px;padding:11px;font-size:15px;font-weight:700;font-family:inherit;
+    background:#eef1f4;border:2px dashed var(--line);border-radius:10px;color:var(--ink);cursor:pointer}
 
   :is(button,select,a,input):focus-visible{outline:4px solid var(--focus);outline-offset:3px}
 
@@ -220,10 +232,19 @@
         <span class="tag">ご家族・窓口の方の設定画面</span>
         <h2>はじめの設定</h2>
         <p>ご本人が操作する必要はありません。一度設定すれば、あとは行き先のボタンを押すだけになります。
-          使わない行き先は「設定しない」でかまいません。</p>
+          行き先は自由に足したり消したりできます（× で削除）。</p>
         <label for="in-setup-phone">利用者の電話番号（この番号に設定を結びつけます）</label>
         <input type="tel" id="in-setup-phone" inputmode="numeric" placeholder="09012345678">
-        <div id="setup-fields"></div>
+        <label for="in-home">自宅の最寄りの乗り場（出発地になります）</label>
+        <select id="in-home"></select>
+        <label>行き先のボタン（並んだ順に表示されます）</label>
+        <div id="setup-places"></div>
+        <button class="addbtn" id="btn-add-place">＋ 行き先を追加</button>
+        <div id="setup-rail">
+          <label id="rail-head"></label>
+          <div id="setup-rails"></div>
+          <button class="addbtn" id="btn-add-rail">＋ 電車の行き先を追加</button>
+        </div>
         <button class="save" id="btn-save">この電話番号で保存する</button>
         <div class="msg" id="setup-msg" hidden></div>
         <button class="tiny" id="btn-setup-cancel" hidden>変更せずに戻る</button>
@@ -274,11 +295,9 @@
         </div>
         <div class="dn-sub" id="dn-sub"></div>
         <div class="where" id="dn-where"></div>
-        <div class="items">
+        <div class="items" id="dn-items" hidden>
           <h3>忘れ物の確認</h3>
-          <label><input type="checkbox"><span>診察券</span></label>
-          <label><input type="checkbox"><span>保険証</span></label>
-          <label><input type="checkbox"><span>財布・カード</span></label>
+          <div id="dn-itemlist"></div>
         </div>
         <a class="tel" id="dn-tel" href="#">
           <span class="lb">困ったときは電話</span>
@@ -395,7 +414,7 @@
   var F = window.FEED;
   var BUS = F.bus;
   var RULE = F.bookingRules.general;      // 予約ルール（この事業者は1種類のみ）
-  var STORE = "mizuho-demand-prototype-v2";
+  var STORE = "mizuho-demand-prototype-v3";
   var LAST_KEY = STORE + "-last";
 
   var WALK_MIN = 5;              // 乗降場まで歩く余裕（デマンド交通）
@@ -405,13 +424,25 @@
   var SPEED_KMH = 25;            // 生活道路中心の平均速度
   var DETOUR = 1.3;              // 直線距離に対する道路距離の係数
 
-  // 行き先の種類。ここを増やすだけでボタンが増える。
-  var PLACES = [
-    { key: "hospital", label: "病院へ行く",       icon: "🏥", setup: "いつも行く病院" },
-    { key: "shopping", label: "買い物へ行く",     icon: "🛒", setup: "よく行くお店" },
-    { key: "grandkid", label: "孫に会いに行く",   icon: "🧒", setup: "お孫さんの家の近くの乗り場" },
-    { key: "friend",   label: "友達に会いに行く", icon: "🍵", setup: "ご友人の家の近くの乗り場" }
+  // 行き先は設定画面で自由に足し引きできる。要るものは家庭ごとに違う。
+  // 下は初期値にすぎない。
+  var PLACE_ICONS = ["🏥", "💊", "🛒", "🍚", "🧒", "👵", "🍵", "🏦", "⛩️", "🏞️", "📚", "📍"];
+  var RAIL_ICONS = ["🚃", "🚉", "🏥", "🛍️", "🧒", "🎭", "📍"];
+  var DEFAULT_PLACES = [
+    { icon: "🏥", label: "病院へ行く",       name: "みずほ病院",
+      items: ["診察券", "保険証", "お財布", "おくすり手帳"],
+      alt: function (s) { return s.name.indexOf("病院") >= 0; } },
+    { icon: "🛒", label: "買い物へ行く",     name: "シモダディスカウントセンター",
+      items: ["お財布", "エコバッグ"],
+      alt: function (s) { return s.category === "shopping"; } },
+    { icon: "🧒", label: "孫に会いに行く",   name: "元狭山コミュニティセンター",
+      items: ["お財布", "おみやげ"],
+      alt: function (s) { return s.category === "public"; } },
+    { icon: "🍵", label: "友達に会いに行く", name: "長岡コミュニティセンター",
+      items: ["お財布"],
+      alt: function (s) { return s.category === "public"; } }
   ];
+  var DEMO_PHONE = "09012345678";
 
   // ── 時刻ユーティリティ（0時からの分で扱う）──────────────────
   function hhmmToMin(s) { var p = s.split(":"); return +p[0] * 60 + +p[1]; }
@@ -860,6 +891,41 @@
   function saveRegistry(r) {
     try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(r)); } catch (e) {}
   }
+  var SEEDED_KEY = STORE + "-seeded";
+  function persistConfig(c) {
+    try { localStorage.setItem(STORE, JSON.stringify(c)); } catch (e) {}
+    if (c && c.phone) {
+      var reg = registry(); reg[c.phone] = c; saveRegistry(reg);
+    }
+  }
+  function stopIdByName(name, alt) {
+    var hit = F.stops.filter(function (st) { return st.name === name; })[0];
+    if (hit) { return hit.id; }
+    var a = alt ? F.stops.filter(alt)[0] : null;
+    return a ? a.id : "";
+  }
+  function railIdByName(name) {
+    if (!RAIL) { return ""; }
+    var hit = RAIL.stops.filter(function (st) { return st.name === name; })[0];
+    if (hit) { return hit.id; }
+    var other = RAIL.stops.filter(function (st) {
+      return RAIL.hubStopIds.indexOf(st.id) < 0;
+    })[0];
+    return other ? other.id : "";
+  }
+  // デモの初期状態。実運用なら空から家族が作る。
+  function defaultConfig() {
+    return {
+      phone: DEMO_PHONE,
+      homeStopId: stopIdByName("ＧＲガレージ多摩") || F.stops[0].id,
+      places: DEFAULT_PLACES.map(function (d) {
+        return { icon: d.icon, label: d.label, items: d.items,
+                 stopId: stopIdByName(d.name, d.alt) };
+      }).filter(function (pl) { return pl.stopId; }),
+      rails: RAIL ? [{ icon: "🚃", label: "電車で出かける", stopId: railIdByName("八王子"),
+                       items: ["お財布", "ICカード"] }] : []
+    };
+  }
   function message(id, text, ok) {
     var el = $(id);
     el.hidden = !text;
@@ -869,6 +935,11 @@
 
   var cfg = null;
   try { cfg = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { cfg = null; }
+  // 電車の行き先は1件から複数になった。古い形なら配列に寄せる。
+  if (cfg && cfg.rail && !cfg.rails) {
+    cfg.rails = cfg.rail.stopId ? [cfg.rail] : [];
+    delete cfg.rail;
+  }
   function stopById(id) {
     for (var i = 0; i < F.stops.length; i++) { if (F.stops[i].id === id) { return F.stops[i]; } }
     return null;
@@ -931,11 +1002,12 @@
     var home = stopById(cfg.homeStopId);
 
     // デマンド交通が使えない日は、行き先ごとにバス経路を探す
+    var places = cfg.places || [];
     var byBus = {};
     if (!p.ok) {
-      PLACES.forEach(function (pl) {
-        var dest = cfg.places[pl.key] && stopById(cfg.places[pl.key]);
-        if (dest) { byBus[pl.key] = findBusTrip(home, dest, n); }
+      places.forEach(function (pl, idx) {
+        var dest = pl.stopId && stopById(pl.stopId);
+        if (dest) { byBus[idx] = findBusTrip(home, dest, n); }
       });
     }
     var anyBus = Object.keys(byBus).some(function (k) { return byBus[k]; });
@@ -961,35 +1033,39 @@
     // 行き先ボタン。設定済みのものだけ出す。
     var wrap = $("home-buttons");
     wrap.innerHTML = "";
-    PLACES.forEach(function (pl) {
-      var dest = cfg.places[pl.key] && stopById(cfg.places[pl.key]);
+    places.forEach(function (pl, idx) {
+      var dest = pl.stopId && stopById(pl.stopId);
       if (!dest) { return; }
-      var bus = byBus[pl.key];
+      var bus = byBus[idx];
       var usable = p.ok || !!bus;
       var sub = p.ok ? dest.name
         : bus ? "バス " + minToHHMM(bus.dep) + "発 → " + dest.name
                 + (bus.transfers ? "（乗り換え1回）" : "")
         : dest.name + "（本日は行けません）";
-      wrap.appendChild(makeButton(pl.icon, pl.label, sub, usable, p.ok ? "go" : "viabus",
-        function () { toConfirm("go", dest, home, bus); }));
+      wrap.appendChild(makeButton(pl.icon || "📍", pl.label || dest.name, sub, usable,
+        p.ok ? "go" : "viabus",
+        function () { toConfirm("go", dest, home, bus, null, pl.items); }));
     });
 
     // 電車で町の外へ。デマンド交通でもバスでも駅までは行けるので、運休日でも出せる。
-    if (RAIL && cfg.railStopId) {
-      var rp = findRailPlan(home, cfg.railStopId, n);
-      var railDest = railStopById(cfg.railStopId);
+    (RAIL ? (cfg.rails || []) : []).forEach(function (rl) {
+      var railDest = rl.stopId && railStopById(rl.stopId);
+      if (!railDest) { return; }
+      var rp = findRailPlan(home, rl.stopId, n);
       var railSub;
       if (rp) {
-        railSub = minToHHMM(rp.train.dep) + "の電車 → " + railDest.name + " " + minToHHMM(rp.train.arr) + "着"
+        railSub = minToHHMM(rp.train.dep) + "の電車 → " + railDest.name
+          + " " + minToHHMM(rp.train.arr) + "着"
           + (rp.train.delay ? "（" + rp.train.delay + "分遅れ）" : "");
       } else if (railSuspended()) {
         railSub = "運転見合わせのため 本日は行けません";
       } else {
         railSub = railDest.name + "（本日は行けません）";
       }
-      wrap.appendChild(makeButton("🚃", "電車で出かける", railSub, !!rp, p.ok ? "go" : "viabus",
-        function () { toConfirm("go", railDest, home, null, rp); }));
-    }
+      wrap.appendChild(makeButton(rl.icon || "🚃", rl.label || (railDest.name + " へ行く"),
+        railSub, !!rp, p.ok ? "go" : "viabus",
+        function () { toConfirm("go", railDest, home, null, rp, rl.items); }));
+    });
 
     // 帰り。行きに電車で出かけていれば、帰りも電車から案内する。
     var rec = recentDropOff();
@@ -1060,7 +1136,7 @@
 
   // ── 確認 ─────────────────────────────────────────
   // bus が渡ってきたらバス経路、なければデマンド交通。どちらでも画面の構造は同じ。
-  function toConfirm(dir, dest, origin, bus, rail) {
+  function toConfirm(dir, dest, origin, bus, rail, items) {
     var n = now();
     if (rail && rail.back) {
       // 帰りは駅にいる前提。「家を出るまで」ではなく「電車に乗るまで」を数える。
@@ -1091,6 +1167,7 @@
         arrive: p.pickup + BOARD_GRACE_MIN + rideMinutes(origin, dest)
       };
     }
+    trip.items = items || [];
     var isBus = trip.mode === "bus";
     var isRail = trip.mode === "rail", isBack = trip.mode === "railback";
     var accent = isBus || ((isRail || isBack) && rail.access.mode === "bus");
@@ -1205,11 +1282,18 @@
       : trip.mode === "rail" ? railJourney(trip.rail)
       : isBus ? busJourney(trip.bus, trip.dest.name)
       : demandJourney(trip));
-    // 前回の旅のチェックが残ったままにしない
-    if (!trip.itemsReset) {
-      trip.itemsReset = true;
-      Array.prototype.forEach.call($("s-done").querySelectorAll(".items input"),
-        function (c) { c.checked = false; });
+    // 行き先ごとの持ち物。20秒ごとの再描画でチェックを消さないよう1回だけ組む。
+    if (!trip.itemsBuilt) {
+      trip.itemsBuilt = true;
+      var list = $("dn-itemlist");
+      list.innerHTML = "";
+      (trip.items || []).forEach(function (name) {
+        var lb = document.createElement("label");
+        var cb = document.createElement("input"); cb.type = "checkbox";
+        var sp = document.createElement("span"); sp.textContent = name;
+        lb.appendChild(cb); lb.appendChild(sp); list.appendChild(lb);
+      });
+      $("dn-items").hidden = !(trip.items && trip.items.length);
     }
     $("btn-cancel").textContent =
       (isBus || (trip.mode === "rail" && trip.rail.access.mode === "bus"))
@@ -1305,71 +1389,120 @@
   function arrive() { trip = null; clearTimers(); renderHome(); }
 
   // ── 初回設定画面 ──────────────────────────────────
-  function buildSetup() {
-    var box = $("setup-fields");
-    box.innerHTML = "";
-    function addSelect(id, labelText, allowNone) {
-      var l = document.createElement("label"); l.htmlFor = id; l.textContent = labelText;
-      var sel = document.createElement("select"); sel.id = id;
-      if (allowNone) {
-        var o0 = document.createElement("option");
-        o0.value = ""; o0.textContent = "（設定しない）";
-        sel.appendChild(o0);
-      }
-      F.stops.slice().sort(function (a, b) { return a.name.localeCompare(b.name, "ja"); })
-        .forEach(function (s) {
-          var o = document.createElement("option");
-          o.value = s.id; o.textContent = s.name; sel.appendChild(o);
-        });
-      box.appendChild(l); box.appendChild(sel);
-      return sel;
+  function stopOptions(sel, list, noneLabel) {
+    if (noneLabel) {
+      var o0 = document.createElement("option");
+      o0.value = ""; o0.textContent = noneLabel; sel.appendChild(o0);
     }
-    addSelect("in-home", "自宅の最寄りの乗り場（出発地になります）", false);
-    PLACES.forEach(function (pl) { addSelect("in-" + pl.key, pl.setup, true); });
+    list.slice().sort(function (a, b) { return a.name.localeCompare(b.name, "ja"); })
+      .forEach(function (st) {
+        var o = document.createElement("option");
+        o.value = st.id; o.textContent = st.name; sel.appendChild(o);
+      });
+  }
+
+  // 行き先1件ぶんの編集行。乗降場でも駅でも同じ形で使う。
+  // 絵文字・ボタンの文字・行き先・持ち物を自由に決められる。
+  function entryRow(entry, stopList, icons, labelPh, itemsPh) {
+    var row = document.createElement("div"); row.className = "prow";
+    var icon = document.createElement("select"); icon.className = "picon";
+    icons.forEach(function (e) {
+      var o = document.createElement("option"); o.value = e; o.textContent = e; icon.appendChild(o);
+    });
+    icon.value = (entry && entry.icon) || icons[0];
+
+    var label = document.createElement("input");
+    label.type = "text"; label.className = "plabel"; label.placeholder = labelPh;
+    label.value = (entry && entry.label) || "";
+
+    var stop = document.createElement("select"); stop.className = "pstop";
+    stopOptions(stop, stopList, "（行き先を選ぶ）");
+    stop.value = (entry && entry.stopId) || "";
+
+    var items = document.createElement("input");
+    items.type = "text"; items.className = "pitems"; items.placeholder = itemsPh;
+    items.value = ((entry && entry.items) || []).join("、");
+
+    var del = document.createElement("button");
+    del.type = "button"; del.className = "pdel"; del.textContent = "×";
+    del.title = "この行き先を削除";
+    del.addEventListener("click", function () { row.remove(); });
+
+    row.appendChild(icon); row.appendChild(label); row.appendChild(del);
+    row.appendChild(stop); row.appendChild(items);
+    return row;
+  }
+  function placeRow(place) {
+    return entryRow(place, F.stops, PLACE_ICONS,
+      "ボタンの文字（例：病院へ行く）", "持ち物（読点で区切る）例：診察券、保険証、お財布");
+  }
+  function railRow(entry) {
+    return entryRow(entry, RAIL.stops.filter(function (st) {
+      return RAIL.hubStopIds.indexOf(st.id) < 0;
+    }), RAIL_ICONS, "ボタンの文字（例：電車で出かける）", "持ち物（読点で区切る）例：お財布、ICカード");
+  }
+
+  function buildSetup(fromCfg) {
+    var homeSel = $("in-home");
+    homeSel.innerHTML = "";
+    stopOptions(homeSel, F.stops, null);
+
+    var box = $("setup-places");
+    box.innerHTML = "";
+    var list = (fromCfg && fromCfg.places) || [];
+    if (!list.length) { list = [null]; }
+    list.forEach(function (pl) { box.appendChild(placeRow(pl)); });
 
     // 町の外の行き先。八高線の沿線駅から選ぶ（乗り継ぎ駅そのものは除く）
-    if (RAIL) {
-      var l = document.createElement("label");
-      l.htmlFor = "in-rail";
-      l.textContent = "電車で行く先（" + RAIL.agency + " " + RAIL.trips[0].route + "）";
-      var sel = document.createElement("select"); sel.id = "in-rail";
-      var none = document.createElement("option");
-      none.value = ""; none.textContent = "（設定しない）";
-      sel.appendChild(none);
-      RAIL.stops.filter(function (s) { return RAIL.hubStopIds.indexOf(s.id) < 0; })
-        .sort(function (a, b) { return a.name.localeCompare(b.name, "ja"); })
-        .forEach(function (s) {
-          var o = document.createElement("option");
-          o.value = s.id; o.textContent = s.name; sel.appendChild(o);
-        });
-      box.appendChild(l); box.appendChild(sel);
-    }
+    var railWrap = $("setup-rail");
+    railWrap.hidden = !RAIL;
+    if (!RAIL) { return; }
+    var rbox = $("setup-rails");
+    rbox.innerHTML = "";
+    var rails = (fromCfg && fromCfg.rails) || [];
+    if (!rails.length) { rails = [null]; }
+    rails.forEach(function (r) { rbox.appendChild(railRow(r)); });
+    $("rail-head").textContent = "電車の行き先（" + RAIL.agency + " " + RAIL.trips[0].route + "）";
+  }
 
-    // それらしい初期値を入れておく。設定者の手間を減らすため。
-    function preset(id, pred) {
-      var hit = F.stops.filter(pred)[0];
-      if (hit) { $(id).value = hit.id; }
-    }
-    preset("in-hospital", function (s) { return s.name.indexOf("病院") >= 0; });
-    preset("in-shopping", function (s) { return s.category === "shopping"; });
+  // 「診察券、保険証」「診察券,保険証」どちらでも受ける
+  function parseItems(v) {
+    return String(v || "").split(/[、,\r\n]/)
+      .map(function (x) { return x.trim(); })
+      .filter(function (x) { return x; });
+  }
+  // 画面から設定を読み取る
+  function collectRows(container, resolve, suffix) {
+    var out = [];
+    Array.prototype.forEach.call(container.querySelectorAll(".prow"), function (row) {
+      var stopId = row.querySelector(".pstop").value;
+      if (!stopId) { return; }
+      var st = resolve(stopId);
+      out.push({
+        icon: row.querySelector(".picon").value,
+        label: row.querySelector(".plabel").value.trim() || (st ? st.name + suffix : ""),
+        stopId: stopId,
+        items: parseItems(row.querySelector(".pitems").value)
+      });
+    });
+    return out;
   }
 
   // 設定画面を今の内容で開く。呼ぶのは家族・窓口の人。
   function openSetup() {
-    buildSetup();
+    buildSetup(cfg);
     message("setup-msg", "");
-    if (cfg) {
-      $("in-setup-phone").value = cfg.phone || "";
-      $("in-home").value = cfg.homeStopId;
-      PLACES.forEach(function (pl) {
-        var el = $("in-" + pl.key);
-        if (el) { el.value = cfg.places[pl.key] || ""; }
-      });
-      if ($("in-rail")) { $("in-rail").value = cfg.railStopId || ""; }
-    }
+    $("in-setup-phone").value = (cfg && cfg.phone) || "";
+    if (cfg) { $("in-home").value = cfg.homeStopId; }
     $("btn-setup-cancel").hidden = !cfg;
     show("setup");
   }
+  $("btn-add-place").addEventListener("click", function () {
+    $("setup-places").appendChild(placeRow(null));
+  });
+  $("btn-add-rail").addEventListener("click", function () {
+    if (RAIL) { $("setup-rails").appendChild(railRow(null)); }
+  });
   $("btn-settings").addEventListener("click", openSetup);
   $("btn-setup-cancel").addEventListener("click", function () {
     if (cfg) { renderHome(); } else { show("phone"); }
@@ -1381,14 +1514,13 @@
       message("setup-msg", "電話番号を10桁以上で入力してください。");
       return;
     }
-    var places = {};
-    PLACES.forEach(function (pl) { places[pl.key] = $("in-" + pl.key).value; });
-    cfg = { phone: phone, homeStopId: $("in-home").value, places: places,
-            railStopId: $("in-rail") ? $("in-rail").value : "" };
-    var reg = registry();
-    reg[phone] = cfg;
-    saveRegistry(reg);
-    try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch (e) {}
+    cfg = {
+      phone: phone,
+      homeStopId: $("in-home").value,
+      places: collectRows($("setup-places"), stopById, " へ行く"),
+      rails: RAIL ? collectRows($("setup-rails"), railStopById, " へ行く") : []
+    };
+    persistConfig(cfg);
     message("setup-msg", "保存しました。利用者の端末で " + phone + " を入力すると反映されます。", true);
     renderHome();
   });
@@ -1403,13 +1535,13 @@
       return;
     }
     cfg = found;
-    try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch (e) {}
+    persistConfig(cfg);
     message("phone-msg", "");
     renderHome();
   });
   $("btn-to-setup").addEventListener("click", function () {
-    $("in-setup-phone").value = $("in-phone").value;
     openSetup();
+    if (!cfg) { $("in-setup-phone").value = $("in-phone").value || DEMO_PHONE; }
   });
 
   // ── 操作 ─────────────────────────────────────────
@@ -1514,13 +1646,20 @@
     try { localStorage.removeItem(STORE); localStorage.removeItem(LAST_KEY); } catch (e) {}
     // 端末側の設定だけ消す。電話番号を入れ直せば戻ってくることを見せるため、
     // 番号に紐づく設定（registry）は残す。
-    cfg = null; trip = null; clearTimers(); buildSetup();
+    cfg = null; trip = null; clearTimers(); buildSetup(null);
     message("phone-msg", ""); show("phone"); renderKV();
   });
 
   // ── 起動 ─────────────────────────────────────────
-  buildSetup();
-  if (cfg && cfg.places && stopById(cfg.homeStopId)) { renderHome(); }
+  // デモなので電話番号は登録済みとして扱い、最初から使える状態で開く。
+  // 「設定リセット」を押したときだけ電話番号の入力から始まる。
+  if (!cfg && !localStorage.getItem(SEEDED_KEY)) {
+    cfg = defaultConfig();
+    persistConfig(cfg);
+    try { localStorage.setItem(SEEDED_KEY, "1"); } catch (e) {}
+  }
+  buildSetup(cfg);
+  if (cfg && cfg.places && cfg.places.length && stopById(cfg.homeStopId)) { renderHome(); }
   else { message("phone-msg", ""); show("phone"); }
   renderKV();
   setInterval(renderKV, 30000);
