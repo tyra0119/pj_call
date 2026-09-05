@@ -59,12 +59,27 @@
   .qdest{font-size:38px;font-weight:800;color:var(--go);margin:12px 0 18px;
     padding:16px;background:#eef5fc;border-radius:14px;text-align:center}
   .qdest.viabus{color:var(--bus);background:#fdf3e6}
-  .row{display:flex;gap:14px;margin-top:auto}
+  /* 「はい」だけでは何が起きるか分からない。何をするのかを上に書く。 */
+  .ask{margin-top:auto;font-size:19px;font-weight:700;text-align:center;
+    padding:12px 8px 14px;color:var(--ink)}
+  .ask span{display:block;font-size:15px;font-weight:600;color:var(--muted);margin-top:4px}
+  .row{display:flex;gap:14px}
   .yes,.no{flex:1;border:none;border-radius:16px;padding:24px 10px;font-size:28px;font-weight:800;
     font-family:inherit;cursor:pointer}
   .yes{background:var(--go);color:#fff;box-shadow:0 4px 0 rgba(0,0,0,.22)}
   .yes.viabus{background:var(--bus)}
   .no{background:#e4e8ec;color:#333b44;border:2px solid #b9c2cb}
+  /* 取り消しは目立たせるが、既定の選択にはしない */
+  .danger{flex:1;border:3px solid #8a1f1f;background:#fff;color:#8a1f1f;border-radius:16px;
+    padding:24px 10px;font-size:26px;font-weight:800;font-family:inherit;cursor:pointer}
+
+  .waiting{align-items:center;justify-content:center;text-align:center}
+  .waittitle{font-size:34px;font-weight:800;margin-top:26px}
+  .waitsub{font-size:21px;color:var(--muted);margin-top:10px}
+  .spinner{width:78px;height:78px;border-radius:50%;
+    border:9px solid #dbe3ea;border-top-color:var(--go);animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){ .spinner{animation-duration:3s} }
 
   .done-h{font-size:27px;font-weight:800;color:var(--back);text-align:center;margin:2px 0 12px}
   .count{background:#0d2f52;color:#fff;border-radius:18px;padding:20px 16px;text-align:center;margin-bottom:14px}
@@ -134,6 +149,9 @@
   .ride .when{font-size:24px;font-weight:800;padding-top:12px;
     border-top:1px solid rgba(255,255,255,.32)}
   .ride .when b{font-size:38px}
+  /* 段階が変わったときの補足。「デマンド交通はここまで」など */
+  .ridesub{background:#eef5fc;border:2px solid var(--go);border-radius:12px;
+    padding:11px 14px;margin:-4px 0 14px;font-size:16px;font-weight:700;color:#0a3f74}
   .nexth{font-size:18px;font-weight:800;color:var(--muted);margin:0 0 8px 2px}
   /* 乗車中は「次に降りる場所」が主役。残りの行程は控えめに添える。 */
   .journey.compact{padding:12px 12px 12px 8px}
@@ -184,6 +202,14 @@
   .prow button.pdel{grid-row:1 / span 3;grid-column:3;height:100%;border:2px solid var(--line);
     background:#fff;color:var(--muted);border-radius:8px;font-size:16px;font-family:inherit;cursor:pointer}
   .prow button.pdel:hover{border-color:#c48b8b;color:#8a1f1f}
+  .check{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;
+    margin:16px 0 4px;cursor:pointer}
+  .check input{width:22px;height:22px;accent-color:var(--go);margin:0}
+  .checkhint{font-size:13px;color:var(--muted);margin:0 0 4px 32px;line-height:1.5}
+  /* 予約の電話で伝えてもらう必要があることは、電話番号のすぐ上に置く */
+  .wcnote{background:#eef5fc;border:2px solid var(--go);border-radius:12px;
+    padding:12px 14px;margin-bottom:12px;font-size:17px;font-weight:700;color:#0a3f74}
+  .wcnote span{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-top:5px}
   .addbtn{width:100%;margin-top:2px;padding:11px;font-size:15px;font-weight:700;font-family:inherit;
     background:#eef1f4;border:2px dashed var(--line);border-radius:10px;color:var(--ink);cursor:pointer}
 
@@ -275,6 +301,9 @@
         <div class="maphint" id="home-map-hint">地図を読み込んでいます…</div>
         <label for="in-home">自宅の最寄りの乗り場（出発地になります）</label>
         <select id="in-home"></select>
+        <label class="check"><input type="checkbox" id="in-wheelchair"> 車椅子を使う</label>
+        <p class="checkhint">移動と乗り降りにかかる時間を長めに見積もります。
+          予約のときに車椅子であることを伝える案内も出ます。</p>
         <label>行き先のボタン（並んだ順に表示されます）</label>
         <div id="setup-places"></div>
         <button class="addbtn" id="btn-add-place">＋ 行き先を追加</button>
@@ -315,11 +344,13 @@
         <div class="q" id="cf-q"></div>
         <div class="qdest" id="cf-dest"></div>
         <div class="where" id="cf-where"></div>
+        <div class="wcnote" id="cf-wc" hidden></div>
         <div class="traininfo" id="cf-info" hidden></div>
         <div class="deadline" id="cf-deadline" hidden></div>
+        <div class="ask" id="cf-ask"></div>
         <div class="row">
           <button class="no" id="btn-no">やめる</button>
-          <button class="yes" id="btn-yes">はい</button>
+          <button class="yes" id="btn-yes">予約する</button>
         </div>
       </section>
 
@@ -337,6 +368,7 @@
           <h3>忘れ物の確認</h3>
           <div id="dn-itemlist"></div>
         </div>
+        <div class="wcnote" id="dn-wc" hidden></div>
         <a class="tel" id="dn-tel" href="#">
           <span class="lb">困ったときは電話</span>
           <span class="nm" id="dn-telnum"></span>
@@ -344,14 +376,33 @@
         <button class="cancel" id="btn-cancel">やめる</button>
       </section>
 
+      <!-- 予約中。押したあと何も起きないと不安になるので、必ず出す -->
+      <section class="screen waiting" id="s-wait">
+        <div class="spinner" aria-hidden="true"></div>
+        <div class="waittitle">予約しています</div>
+        <div class="waitsub">しばらくお待ちください</div>
+      </section>
+
+      <!-- 取り消しの確認。押し間違いで予約が消えないように一度止める -->
+      <section class="screen" id="s-cancel">
+        <div class="q" id="cx-q"></div>
+        <div class="where" id="cx-what"></div>
+        <div class="ask" id="cx-ask"></div>
+        <div class="row">
+          <button class="yes" id="btn-cancel-no">いいえ</button>
+          <button class="danger" id="btn-cancel-yes">取り消す</button>
+        </div>
+      </section>
+
       <!-- 乗車後：次に降りる場所と、そこまでの残り時間だけを大きく出す -->
       <section class="screen" id="s-riding">
         <div class="done-h" id="rd-h"></div>
         <div class="ride">
-          <div class="lead">つぎに降りるのは</div>
+          <div class="lead" id="rd-lead">つぎに降りるのは</div>
           <div class="dest" id="rd-dest"></div>
           <div class="when" id="rd-when"></div>
         </div>
+        <div class="ridesub" id="rd-sub" hidden></div>
         <h3 class="nexth" id="rd-nexth" hidden>このあと</h3>
         <div id="rd-where"></div>
         <a class="tel" id="rd-tel" href="#">
@@ -406,6 +457,14 @@
               <td><span class="flag gap">未実装</span> 使っているのは静的な時刻表。ODPT には
               JR東日本の<b>列車ロケーション情報</b>もあるので、遅延を予約締切の逆算に反映できる。
               「電車が5分遅れているので、あと5分予約を待てます」まで出せる。</td></tr>
+          <tr><th>車椅子で乗れるか</th>
+              <td><span class="flag gap">データに無い</span>
+              3フィードのいずれにも記載がない。デマンド交通とコミュニティバスは
+              <code>wheelchair_boarding</code> / <code>wheelchair_accessible</code> の
+              <b>列そのものが無く</b>、JR東日本は列はあるが<b>772駅・18,520便すべて空欄</b>。
+              バリアフリーは本チャレンジの募集テーマの一つだが、判定できるデータが無い。
+              そのため本アプリは利用者の設定として持ち、所要時間に反映したうえで、
+              配車の可否は電話で確認してもらう案内に留めている。</td></tr>
           <tr><th>乗車・到着の検知</th>
               <td><span class="flag gap">層が違う</span> GTFS-Flex は静的な運行定義で、
               <b>乗降のイベントは含まれない</b>。個人の乗降状態は事業者の配車システムにしかなく、
@@ -432,6 +491,7 @@
         <label>予約したあとの進行（デモ用）</label>
         <div class="btns">
           <button id="btn-demo-board">乗車したことにする</button>
+          <button id="btn-demo-next">次の段階へ</button>
           <button id="btn-demo-arrive">到着したことにする</button>
         </div>
         <label>八高線の遅延（デモ用の上書き）</label>
@@ -457,6 +517,18 @@
 
   var WALK_MIN = 5;              // 乗降場まで歩く余裕（デマンド交通）
   var WALK_M_PER_MIN = 60;       // 高齢者の歩行速度の目安
+
+  // 車椅子のときの目安。データには一切含まれないので（3フィードとも
+  // wheelchair_boarding / wheelchair_accessible が空）、利用者ごとの設定として持つ。
+  var WC_M_PER_MIN = 40;         // 自走と段差の迂回を見込んだ移動の速さ
+  var WC_BOARD_MIN = 8;          // スロープ・固定にかかる乗降の時間
+  var WC_STATION_MIN = 12;       // 改札・エレベーターの待ち
+  function isWheelchair() { return !!(cfg && cfg.wheelchair); }
+  function moveSpeed() { return isWheelchair() ? WC_M_PER_MIN : WALK_M_PER_MIN; }
+  function boardGrace() { return isWheelchair() ? WC_BOARD_MIN : BOARD_GRACE_MIN; }
+  function stationBuffer() { return isWheelchair() ? WC_STATION_MIN : STATION_BUFFER_MIN; }
+  // 車椅子の人に「歩いて」は使わない
+  function moveLeg(min) { return (isWheelchair() ? "♿ 移動 " : "🚶 歩いて ") + min + "分"; }
   var BUS_NEAR_M = 600;          // 乗降場からこの距離までのバス停を候補にする
   var BOARD_GRACE_MIN = 3;       // お迎え時刻からこの時間で乗車したとみなす
   var SPEED_KMH = 25;            // 生活道路中心の平均速度
@@ -561,7 +633,7 @@
     var out = [];
     BUS.stops.forEach(function (b) {
       var d = distanceM(stop.lat, stop.lon, b);
-      if (d <= BUS_NEAR_M) { out.push({ stop: b, dist: d, walk: Math.ceil(d / WALK_M_PER_MIN) }); }
+      if (d <= BUS_NEAR_M) { out.push({ stop: b, dist: d, walk: Math.ceil(d / moveSpeed()) }); }
     });
     return out;
   }
@@ -723,14 +795,14 @@
     if (p.ok) {
       var ride = rideMinutes(fromStop, hub);
       access = { mode: "demand", pickup: p.pickup, leave: p.leave, ride: ride,
-                 arrive: p.pickup + BOARD_GRACE_MIN + ride };
+                 arrive: p.pickup + boardGrace() + ride };
     } else {
       var b = findBusTrip(fromStop, hub, n);
       if (!b) { return null; }
       access = { mode: "bus", bus: b, leave: b.dep - b.walk, arrive: b.arr };
     }
 
-    var walk = Math.ceil(distanceM(hub.lat, hub.lon, jrHub) / WALK_M_PER_MIN) + STATION_BUFFER_MIN;
+    var walk = Math.ceil(distanceM(hub.lat, hub.lon, jrHub) / moveSpeed()) + stationBuffer();
     var readyAt = access.arrive + walk;
 
     if (railSuspended()) { return null; }
@@ -753,11 +825,11 @@
     // 早く着きすぎると駅で長く待つことになる。デマンド交通は時刻を選べるので、
     // 電車の PLATFORM_MARGIN 分前にホームに立てるところまでお迎えを遅らせる。
     if (access.mode === "demand") {
-      var target = best.dep - PLATFORM_MARGIN_MIN - walk - access.ride - BOARD_GRACE_MIN;
+      var target = best.dep - PLATFORM_MARGIN_MIN - walk - access.ride - boardGrace();
       var pickup = Math.max(p.pickup, target);
       access.pickup = pickup;
       access.leave = pickup - homeWalkMin();
-      access.arrive = pickup + BOARD_GRACE_MIN + access.ride;
+      access.arrive = pickup + boardGrace() + access.ride;
     }
 
     var out = { access: access, hub: hub, jrHub: jrHub, walk: walk, train: best,
@@ -765,7 +837,7 @@
                 dest: railStopById(destStopId), arrive: best.arr };
     // この電車に乗るための予約締切。3フィードが揃わないと出せない数字。
     if (access.mode === "demand") {
-      out.latestPickup = best.dep - walk - access.ride - BOARD_GRACE_MIN;
+      out.latestPickup = best.dep - walk - access.ride - boardGrace();
       out.deadline = out.latestPickup - RULE.priorNoticeMin;
     }
     return out;
@@ -809,9 +881,9 @@
     var hub = demandHubStop();
     if (!hub) { return null; }
     var jrHub = railStopById(RAIL.hubStopIds[0]);
-    var walk = Math.ceil(distanceM(hub.lat, hub.lon, jrHub) / WALK_M_PER_MIN) + STATION_BUFFER_MIN;
+    var walk = Math.ceil(distanceM(hub.lat, hub.lon, jrHub) / moveSpeed()) + stationBuffer();
     var delay = railDelayMin();
-    var cur = minsOf(n) + STATION_BUFFER_MIN;   // 改札を通ってホームへ
+    var cur = minsOf(n) + stationBuffer();   // 改札を通ってホームへ
 
     var ids = servicesOn(RAIL.services, n), best = null;
     RAIL.trips.forEach(function (t) {
@@ -835,7 +907,7 @@
       if (pickup <= w.end) {
         var ride = rideMinutes(hub, homeStop);
         access = { mode: "demand", pickup: pickup, ride: ride,
-                   arrive: pickup + BOARD_GRACE_MIN + ride };
+                   arrive: pickup + boardGrace() + ride };
       }
     }
     if (!access) {
@@ -854,7 +926,7 @@
         + (r.train.arr - r.train.dep) + "分"
         + (r.train.delay ? "（" + r.train.delay + "分遅れ）" : "") },
       { t: r.train.arr, place: r.jrHub.name + "駅", note: "降ります" },
-      { leg: "🚶 歩いて " + r.walk + "分" }
+      { leg: moveLeg(r.walk) }
     ];
     if (r.access.mode === "demand") {
       var wait = r.access.pickup - (r.train.arr + r.walk);
@@ -867,8 +939,10 @@
       rows.push({ t: r.access.bus.dep, place: r.access.bus.from.name, note: "バスに乗る" });
       rows.push({ leg: "🚌 バスで " + (r.access.bus.arr - r.access.bus.dep) + "分" });
     }
-    rows.push({ t: r.arrive, place: r.dest.name, note: "自宅に到着", end: true });
-    return rows;
+    var tail = homeArrival(r.back ? { dir: "back", arrive: r.arrive } : {});
+    rows.push({ t: r.arrive, place: r.dest.name,
+                note: tail.length ? "降ります" : "自宅に到着", end: !tail.length });
+    return rows.concat(tail);
   }
 
   function railJourney(r) {
@@ -876,15 +950,15 @@
     if (r.access.mode === "demand") {
       if (cfg && cfg.home && r.access.pickup - r.access.leave > 0) {
         rows.push({ t: r.access.leave, place: "自宅", note: "家を出る" });
-        rows.push({ leg: "🚶 歩いて " + (r.access.pickup - r.access.leave) + "分" });
+        rows.push({ leg: moveLeg(r.access.pickup - r.access.leave) });
       }
       rows.push({ t: r.access.pickup, place: r.from.name, note: "お迎え" });
       rows.push({ leg: "🚐 デマンド交通で " + (r.access.arrive - r.access.pickup)
-        + "分　🚶 歩いて " + r.walk + "分" });
+        + "分　" + moveLeg(r.walk) });
     } else {
       rows.push({ t: r.access.bus.dep, place: r.access.bus.from.name, note: "バスに乗る" });
       rows.push({ leg: "🚌 バスで " + (r.access.bus.arr - r.access.bus.dep) + "分"
-        + (r.access.bus.transfers ? "（乗り換え1回）" : "") + "　🚶 歩いて " + r.walk + "分" });
+        + (r.access.bus.transfers ? "（乗り換え1回）" : "") + "　" + moveLeg(r.walk) });
     }
     rows.push({ t: r.platform, place: r.jrHub.name + "駅", note: "ホームに着く" });
     var wait = r.train.dep - r.platform;
@@ -911,7 +985,7 @@
     rows.push({ t: b.arr, place: b.to.name, note: "降ります　運賃 " + b.fare + "円" });
     // 降りたバス停と目的地が違うなら、最後の徒歩まで見せないと不親切
     if (destName && destName !== b.to.name && b.walkTo) {
-      rows.push({ leg: "🚶 歩いて " + b.walkTo + "分" });
+      rows.push({ leg: moveLeg(b.walkTo) });
       rows.push({ t: b.arr + b.walkTo, place: destName, note: "到着" });
     }
     for (var k = rows.length - 1; k >= 0; k--) {
@@ -922,20 +996,32 @@
 
   // 自宅を登録していれば、家を出るところから見せる。
   // 徒歩時間が人によって違うので、ここを省くと時刻の根拠が見えない。
+  // 帰りは乗降場で降りて、そこから自宅まで歩く。
+  // 乗り場で「自宅に到着」と書くと、行きの表示と辻褄が合わない。
+  function homeArrival(t) {
+    if (!cfg || !cfg.home || t.dir !== "back") { return []; }
+    var w = homeWalkMin();
+    if (w <= 0) { return []; }
+    return [{ leg: moveLeg(w) },
+            { t: t.arrive + w, place: "自宅", note: "到着", end: true }];
+  }
+
   function homeLeg(t) {
     if (!cfg || !cfg.home || t.dir !== "go") { return []; }
     var walk = t.pickup - t.leave;
     if (walk <= 0) { return []; }
     return [{ t: t.leave, place: "自宅", note: "家を出る" },
-            { leg: "🚶 歩いて " + walk + "分" }];
+            { leg: moveLeg(walk) }];
   }
 
   function demandJourney(t) {
+    var tail = homeArrival(t);
     return homeLeg(t).concat([
       { t: t.pickup, place: t.origin.name, note: "お迎え" },
       { leg: "🚐 デマンド交通で " + (t.arrive - t.pickup) + "分" },
-      { t: t.arrive, place: t.dest.name, note: "到着", end: true }
-    ]);
+      { t: t.arrive, place: t.dest.name, note: tail.length ? "降ります" : "到着",
+        end: !tail.length }
+    ], tail);
   }
 
   // ── 設定（初回登録）─────────────────────────────────
@@ -977,10 +1063,13 @@
     // デモの自宅は、乗り場から 200m ほど離れた地点に置く。
     // 乗り場と同じ座標にすると徒歩時間が出ず、この設定の意味が見えないため。
     var base = stopById(stopIdByName("ＧＲガレージ多摩")) || F.stops[0];
+    var home = { lat: +(base.lat + 0.0016).toFixed(6), lon: +(base.lon + 0.0008).toFixed(6) };
+    // 乗り場は座標から導く。手で書くと自宅と食い違い、徒歩時間が合わなくなる。
+    var near = nearestStop(home.lat, home.lon);
     return {
       phone: DEMO_PHONE,
-      home: { lat: +(base.lat + 0.0016).toFixed(6), lon: +(base.lon + 0.0008).toFixed(6) },
-      homeStopId: stopIdByName("ＧＲガレージ多摩") || F.stops[0].id,
+      home: home,
+      homeStopId: near ? near.stop.id : base.id,
       places: DEFAULT_PLACES.map(function (d) {
         return { icon: d.icon, label: d.label, items: d.items,
                  stopId: stopIdByName(d.name, d.alt) };
@@ -1039,7 +1128,7 @@
   var trip = null, timer = null, pending = [];
   function $(id) { return document.getElementById(id); }
   function show(id) {
-    ["phone", "setup", "home", "pick", "confirm", "done", "riding"].forEach(function (k) {
+    ["phone", "setup", "home", "pick", "confirm", "wait", "cancel", "done", "riding"].forEach(function (k) {
       $("s-" + k).classList.toggle("on", k === id);
     });
   }
@@ -1049,14 +1138,11 @@
     pending = [];
   }
 
-  var DEMO_BOARD_MS = 10000, DEMO_ARRIVE_MS = 10000;
+  var DEMO_BOARD_MS = 10000;   // 予約 → 乗車
+  var DEMO_STEP_MS = 10000;    // 段階から次の段階へ
   function boardDelayMs() {
     if (virtualNow) { return DEMO_BOARD_MS; }
     return Math.max(0, (trip.board - minsOf(now())) * 60000);
-  }
-  function arriveDelayMs() {
-    if (virtualNow) { return DEMO_ARRIVE_MS; }
-    return Math.max(0, (trip.arrive - trip.board) * 60000);
   }
 
   // ── ホーム ────────────────────────────────────────
@@ -1212,7 +1298,7 @@
       trip = {
         mode: "rail", dir: dir, dest: dest, origin: origin, rail: rail,
         leave: rail.access.leave, board: rail.access.mode === "demand"
-          ? rail.access.pickup + BOARD_GRACE_MIN : rail.access.bus.dep,
+          ? rail.access.pickup + boardGrace() : rail.access.bus.dep,
         pickup: rail.access.pickup, arrive: rail.arrive
       };
     } else if (bus) {
@@ -1226,8 +1312,8 @@
       trip = {
         mode: "demand", dir: dir, dest: dest, origin: origin,
         pickup: p.pickup, leave: p.leave,
-        board: p.pickup + BOARD_GRACE_MIN,
-        arrive: p.pickup + BOARD_GRACE_MIN + rideMinutes(origin, dest)
+        board: p.pickup + boardGrace(),
+        arrive: p.pickup + boardGrace() + rideMinutes(origin, dest)
       };
     }
     trip.items = items || [];
@@ -1245,6 +1331,15 @@
       : isRail ? railJourney(rail)
       : isBus ? busJourney(bus, dest.name)
       : demandJourney(trip));
+    // 予約が要るのはデマンド交通だけ。バスと電車は乗るだけ。
+    var needsBooking = usesDemand(trip);
+    $("cf-ask").innerHTML = needsBooking
+      ? "この内容で予約しますか？"
+        + "<span>デマンド交通は予約が要ります。予約すると車が来ます。</span>"
+      : "この予定で出かけますか？"
+        + "<span>バスと電車は予約が要りません。時間になったらお知らせします。</span>";
+    $("btn-yes").textContent = needsBooking ? "予約する" : "これで行く";
+    renderWheelchairNote("cf-wc", trip);
     // 八高線の運行情報。平常時は出さない。
     var notice = (isRail || isBack) ? railNotice() : null;
     $("cf-info").hidden = !notice;
@@ -1326,6 +1421,25 @@
   }
 
   // ── 出発前・乗車中 ─────────────────────────────────
+  // 車椅子で乗れる車かどうかは、どのフィードにも入っていない。
+  // アプリでは判定できないので、電話で伝えてもらう案内に落とす。
+  function usesDemand(t) {
+    if (!t) { return false; }
+    if (t.mode === "demand") { return true; }
+    if (t.mode === "rail" || t.mode === "railback") { return t.rail.access.mode === "demand"; }
+    return false;
+  }
+  function renderWheelchairNote(id, t) {
+    var el = $(id);
+    var show = isWheelchair() && usesDemand(t);
+    el.hidden = !show;
+    if (show) {
+      el.innerHTML = "電話のとき「車椅子です」とお伝えください"
+        + "<span>車椅子で乗れる車かどうかは公開データに含まれていないため、"
+        + "配車できるかは事業者にご確認ください。</span>";
+    }
+  }
+
   function renderDone() {
     if (!trip) { return; }
     var isBus = trip.mode === "bus";
@@ -1361,6 +1475,7 @@
     $("btn-cancel").textContent =
       (isBus || (trip.mode === "rail" && trip.rail.access.mode === "bus"))
         ? "やめる" : "予約を取り消す";
+    renderWheelchairNote("dn-wc", trip);
     $("dn-telnum").textContent = RULE.phone;
     $("dn-tel").href = "tel:" + RULE.phone.replace(/-/g, "");
     show("done");
@@ -1368,86 +1483,150 @@
 
   // 乗車中に要るのは「次にどこで降りるか」と「あと何分か」だけ。
   // 乗り換えがあるときは最終目的地ではなく、最初に降りる地点を出す。
-  function ridingPlan(t) {
-    if (t.mode === "railback") {
-      var rb = t.rail, rows0 = [{ leg: "🚶 歩いて " + rb.walk + "分" }];
-      if (rb.access.mode === "demand") {
-        var wt = rb.access.pickup - (rb.train.arr + rb.walk);
-        if (wt > 0) { rows0.push({ leg: "⏳ " + wt + "分 待ちます", wait: true }); }
-        rows0.push({ t: rb.access.pickup, place: rb.hub.name, note: "お迎え" });
-        rows0.push({ leg: "🚐 デマンド交通で " + (rb.access.arrive - rb.access.pickup) + "分" });
-      } else {
-        rows0.push({ t: rb.access.bus.dep, place: rb.access.bus.from.name, note: "バスに乗る" });
-        rows0.push({ leg: "🚌 バスで " + (rb.access.bus.arr - rb.access.bus.dep) + "分" });
-      }
-      rows0.push({ t: rb.arrive, place: rb.dest.name, note: "自宅に到着", end: true });
-      return { place: rb.jrHub.name + "駅", at: rb.train.arr, rows: rows0, head: "電車に乗りました" };
-    }
+  // 行程は「乗る → 降りる → 移動 → 待つ → また乗る」と段階が変わる。
+  // 予約はデマンド交通の分だけなので、降りたあとは案内だけになる。
+  // 各段階で「次に何をするか」だけを出し、時刻が来たら次へ進める。
+  function journeyStages(t) {
+    var st = [];
     if (t.mode === "rail") {
       var r = t.rail;
-      var off = r.access.mode === "demand" ? r.hub : r.access.bus.to;
-      var rows = [{ leg: "🚶 歩いて " + r.walk + "分" },
-                  { t: r.platform, place: r.jrHub.name + "駅", note: "ホームに着く" }];
+      var byBus = r.access.mode === "bus";
+      var off = byBus ? r.access.bus.to : r.hub;
+      var tail = [];
       var w = r.train.dep - r.platform;
-      if (w > 0) { rows.push({ leg: "⏳ " + w + "分 待ちます", wait: true }); }
-      rows.push({ t: r.train.dep, place: r.train.route + " " + r.train.headsign + "行",
+      if (w > 0) { tail.push({ leg: "⏳ " + w + "分 待ちます", wait: true }); }
+      tail.push({ t: r.train.dep, place: r.train.route + " " + r.train.headsign + "行",
                   note: "電車に乗る" });
-      rows.push({ leg: "🚃 電車で " + (r.train.arr - r.train.dep) + "分" });
-      rows.push({ t: r.train.arr, place: r.dest.name, note: "到着", end: true });
-      return { place: off.name, at: r.access.arrive, rows: rows,
-               head: r.access.mode === "demand" ? "車に乗りました" : "バスに乗りました" };
+      tail.push({ leg: "🚃 電車で " + (r.train.arr - r.train.dep) + "分" });
+      tail.push({ t: r.train.arr, place: r.dest.name, note: "到着", end: true });
+
+      st.push({ head: byBus ? "バスに乗りました" : "車に乗りました",
+                lead: "つぎに降りるのは", place: off.name, at: r.access.arrive,
+                rows: [{ leg: moveLeg(r.walk) },
+                       { t: r.platform, place: r.jrHub.name + "駅", note: "ホームに着く" }]
+                      .concat(tail) });
+      st.push({ head: "降りました", lead: "つぎに向かうのは", place: r.jrHub.name + "駅",
+                at: r.platform,
+                sub: (byBus ? "バス" : "デマンド交通") + "はここまでです。ここから先は電車です。",
+                rows: tail.slice() });
+      st.push({ head: "駅に着きました", lead: "乗る電車は",
+                place: r.train.route + " " + r.train.headsign + "行", at: r.train.dep,
+                sub: "のりばは駅の案内でお確かめください。",
+                rows: tail.slice(-2) });
+      st.push({ head: "電車に乗りました", lead: "つぎに降りるのは", place: r.dest.name,
+                at: r.train.arr, rows: null });
+      return st;
     }
+
+    if (t.mode === "railback") {
+      var rb = t.rail, viaBus = rb.access.mode === "bus";
+      var last = [{ t: rb.arrive, place: rb.dest.name, note: "自宅に到着", end: true }];
+      var mid = viaBus
+        ? [{ t: rb.access.bus.dep, place: rb.access.bus.from.name, note: "バスに乗る" },
+           { leg: "🚌 バスで " + (rb.access.bus.arr - rb.access.bus.dep) + "分" }]
+        : [{ t: rb.access.pickup, place: rb.hub.name, note: "お迎え" },
+           { leg: "🚐 デマンド交通で " + (rb.access.arrive - rb.access.pickup) + "分" }];
+      st.push({ head: "電車に乗りました", lead: "つぎに降りるのは",
+                place: rb.jrHub.name + "駅", at: rb.train.arr,
+                rows: [{ leg: moveLeg(rb.walk) }].concat(mid, last) });
+      st.push({ head: "降りました", lead: viaBus ? "つぎに向かうのは" : "お迎えの場所は",
+                place: viaBus ? rb.access.bus.from.name : rb.hub.name,
+                at: viaBus ? rb.access.bus.dep : rb.access.pickup,
+                sub: "電車はここまでです。ここから先は"
+                     + (viaBus ? "バス" : "デマンド交通") + "です。",
+                rows: mid.slice(1).concat(last) });
+      var homeTail = homeArrival({ dir: "back", arrive: rb.arrive });
+      st.push({ head: viaBus ? "バスに乗りました" : "車に乗りました",
+                lead: "つぎに降りるのは", place: rb.dest.name, at: rb.arrive,
+                rows: homeTail.length ? homeTail : null });
+      if (homeTail.length) {
+        st.push({ head: "降りました", lead: "つぎに向かうのは", place: "自宅",
+                  at: rb.arrive + homeWalkMin(), rows: null });
+      }
+      return st;
+    }
+
     if (t.mode === "bus") {
       var b = t.bus;
+      var walkTail = (b.walkTo && t.dest.name !== b.to.name)
+        ? [{ leg: moveLeg(b.walkTo) },
+           { t: b.arr + b.walkTo, place: t.dest.name, note: "到着", end: true }] : null;
       if (b.transfers) {
         var w2 = b.legs[1].dep - b.legs[0].arr;
-        var rows2 = [];
-        if (w2 > 0) { rows2.push({ leg: "⏳ " + w2 + "分 待ちます", wait: true }); }
-        rows2.push({ t: b.legs[1].dep,
-                     place: b.legs[1].route.replace("瑞穂町コミュニティバス　", ""),
-                     note: "乗り換えて乗ります" });
-        rows2.push({ leg: "🚌 " + (b.legs[1].arr - b.legs[1].dep) + "分" });
-        rows2.push({ t: b.arr, place: b.to.name, note: "降ります　運賃 " + b.fare + "円",
-                     end: !b.walkTo });
-        if (b.walkTo && t.dest.name !== b.to.name) {
-          rows2.push({ leg: "🚶 歩いて " + b.walkTo + "分" });
-          rows2.push({ t: b.arr + b.walkTo, place: t.dest.name, note: "到着", end: true });
-        }
-        return { place: b.legs[0].to.name, at: b.legs[0].arr, rows: rows2, head: "バスに乗りました" };
+        var leg2 = [];
+        if (w2 > 0) { leg2.push({ leg: "⏳ " + w2 + "分 待ちます", wait: true }); }
+        leg2.push({ t: b.legs[1].dep,
+                    place: b.legs[1].route.replace("瑞穂町コミュニティバス　", ""),
+                    note: "乗り換えて乗ります" });
+        leg2.push({ leg: "🚌 " + (b.legs[1].arr - b.legs[1].dep) + "分" });
+        leg2.push({ t: b.arr, place: b.to.name, note: "降ります", end: !walkTail });
+        st.push({ head: "バスに乗りました", lead: "つぎに降りるのは",
+                  place: b.legs[0].to.name, at: b.legs[0].arr,
+                  sub: "ここで乗り換えます。",
+                  rows: leg2.concat(walkTail || []) });
+        st.push({ head: "乗り換えです", lead: "つぎに乗るのは",
+                  place: b.legs[1].route.replace("瑞穂町コミュニティバス　", ""),
+                  at: b.legs[1].dep, rows: leg2.slice(-2).concat(walkTail || []) });
       }
-      var rows3 = null;
-      if (b.walkTo && t.dest.name !== b.to.name) {
-        rows3 = [{ leg: "🚶 歩いて " + b.walkTo + "分" },
-                 { t: b.arr + b.walkTo, place: t.dest.name, note: "到着", end: true }];
+      st.push({ head: "バスに乗りました", lead: "つぎに降りるのは", place: b.to.name,
+                at: b.arr, sub: "運賃は " + b.fare + "円です。", rows: walkTail });
+      if (walkTail) {
+        st.push({ head: "降りました", lead: "つぎに向かうのは", place: t.dest.name,
+                  at: b.arr + b.walkTo, rows: null });
       }
-      return { place: b.to.name, at: b.arr, rows: rows3, head: "バスに乗りました" };
+      return st;
     }
-    return { place: t.dest.name, at: t.arrive, rows: null, head: "車に乗りました" };
+
+    var back = homeArrival(t);
+    var one = [{ head: "車に乗りました", lead: "つぎに降りるのは", place: t.dest.name,
+                 at: t.arrive, rows: back.length ? back : null }];
+    if (back.length) {
+      one.push({ head: "降りました", lead: "つぎに向かうのは", place: "自宅",
+                 at: t.arrive + homeWalkMin(), rows: null });
+    }
+    return one;
   }
 
   function renderRiding() {
-    if (!trip) { return; }
-    var r = ridingPlan(trip);
-    // 乗った時点を下限にする。仮想時刻を止めているデモでは now が乗車前のままになるため。
-    var left = r.at - Math.max(minsOf(now()), trip.board);
-    $("rd-h").textContent = r.head;
-    $("rd-dest").textContent = r.place;
+    if (!trip || !trip.stages) { return; }
+    var st = trip.stages[trip.stage];
+    if (!st) { return; }
+    // 仮想時刻では now が進まないので、その段階に入った時刻を下限にする
+    var left = st.at - Math.max(minsOf(now()), trip.stageFrom);
+    $("rd-h").textContent = st.head;
+    $("rd-lead").textContent = st.lead;
+    $("rd-dest").textContent = st.place;
     $("rd-when").innerHTML = (left > 0 ? "あと <b>" + left + "</b> 分　" : "まもなく　")
-      + minToHHMM(r.at) + "ごろ";
-    $("rd-nexth").hidden = !r.rows;
-    if (r.rows) { renderJourney($("rd-where"), r.rows); $("rd-where").classList.add("compact"); }
+      + minToHHMM(st.at) + "ごろ";
+    $("rd-sub").textContent = st.sub || "";
+    $("rd-sub").hidden = !st.sub;
+    $("rd-nexth").hidden = !st.rows;
+    if (st.rows) { renderJourney($("rd-where"), st.rows); $("rd-where").classList.add("compact"); }
     else { $("rd-where").className = ""; $("rd-where").innerHTML = ""; }
     $("rd-telnum").textContent = RULE.phone;
     $("rd-tel").href = "tel:" + RULE.phone.replace(/-/g, "");
     show("riding");
   }
 
-  function board() {
+  function stageDelayMs(st) {
+    if (virtualNow) { return DEMO_STEP_MS; }
+    return Math.max(0, (st.at - minsOf(now())) * 60000);
+  }
+  function enterStage(i) {
     if (!trip) { return; }
+    var st = trip.stages && trip.stages[i];
+    if (!st) { arrive(); return; }
+    trip.stageFrom = i === 0 ? trip.board : trip.stages[i - 1].at;
+    trip.stage = i;
     clearTimers();
     renderRiding();
     timer = setInterval(function () { if (trip) { renderRiding(); } }, 20000);
-    pending.push(setTimeout(arrive, arriveDelayMs()));
+    pending.push(setTimeout(function () { enterStage(i + 1); }, stageDelayMs(st)));
+  }
+  function board() {
+    if (!trip) { return; }
+    trip.stages = journeyStages(trip);
+    enterStage(0);
   }
   function arrive() { trip = null; clearTimers(); renderHome(); }
 
@@ -1560,7 +1739,7 @@
     if (!cfg || !cfg.home) { return WALK_MIN; }
     var st = stopById(cfg.homeStopId);
     if (!st) { return WALK_MIN; }
-    return Math.max(2, Math.ceil(distanceM(cfg.home.lat, cfg.home.lon, st) / WALK_M_PER_MIN));
+    return Math.max(2, Math.ceil(distanceM(cfg.home.lat, cfg.home.lon, st) / moveSpeed()));
   }
 
   function stopsCenter() {
@@ -1574,10 +1753,10 @@
     var nr = nearestStop(lat, lon);
     var hint = $("home-map-hint");
     if (!nr) { hint.textContent = "近くに乗り場が見つかりません。"; return; }
-    var walk = Math.max(2, Math.ceil(nr.dist / WALK_M_PER_MIN));
+    var walk = Math.max(2, Math.ceil(nr.dist / moveSpeed()));
     $("in-home").value = nr.stop.id;
     hint.innerHTML = "最寄りの乗り場　<b>" + nr.stop.name + "</b>"
-      + "（" + fmtDist(nr.dist) + "・歩いて " + walk + "分）<br>"
+      + "（" + fmtDist(nr.dist) + "・" + (isWheelchair() ? "移動" : "歩いて") + " " + walk + "分）<br>"
       + "この徒歩時間で「家を出る時刻」を出します。別の乗り場にしたいときは下から選び直せます。";
   }
 
@@ -1627,6 +1806,7 @@
     buildSetup(cfg);
     message("setup-msg", "");
     $("in-setup-phone").value = (cfg && cfg.phone) || "";
+    $("in-wheelchair").checked = !!(cfg && cfg.wheelchair);
     if (cfg) { $("in-home").value = cfg.homeStopId; }
     $("btn-setup-cancel").hidden = !cfg;
     show("setup");
@@ -1653,6 +1833,7 @@
     cfg = {
       phone: phone,
       home: pin ? { lat: +pin.lat.toFixed(6), lon: +pin.lng.toFixed(6) } : (cfg && cfg.home) || null,
+      wheelchair: $("in-wheelchair").checked,
       homeStopId: $("in-home").value,
       places: collectRows($("setup-places"), stopById, " へ行く"),
       rails: RAIL ? collectRows($("setup-rails"), railStopById, " へ行く") : []
@@ -1687,16 +1868,50 @@
   });
   $("btn-pick-cancel").addEventListener("click", renderHome);
   $("btn-no").addEventListener("click", renderHome);
-  $("btn-yes").addEventListener("click", function () {
-    if (trip && trip.dir === "go") {
-      rememberDropOff(trip.dest, trip.mode === "rail" ? "rail" : "stop");
-    }
+  // 予約したあとの待ち受け。取り消しの確認から戻るときも同じ状態に戻す。
+  function scheduleAfterBooking() {
     clearTimers();
     renderDone();
     timer = setInterval(function () { if (trip) { renderDone(); } }, 20000);
     pending.push(setTimeout(board, boardDelayMs()));
+  }
+
+  var BOOKING_WAIT_MS = 5000;   // 押したあと何も起きないと不安になるので必ず挟む
+
+  $("btn-yes").addEventListener("click", function () {
+    if (!trip) { return; }
+    if (trip.dir === "go") {
+      rememberDropOff(trip.dest, trip.mode === "rail" ? "rail" : "stop");
+    }
+    clearTimers();
+    if (usesDemand(trip)) {
+      show("wait");
+      pending.push(setTimeout(scheduleAfterBooking, BOOKING_WAIT_MS));
+    } else {
+      // バスと電車だけの予定は予約が要らないので待たせない
+      scheduleAfterBooking();
+    }
   });
+
+  // 取り消しは一度止めて確認する。押し間違いで予約が消えると困る。
   $("btn-cancel").addEventListener("click", function () {
+    if (!trip) { renderHome(); return; }
+    clearTimers();
+    var booked = usesDemand(trip);
+    $("cx-q").textContent = booked ? "予約を取り消します。" : "この予定をやめます。";
+    $("cx-what").innerHTML = "行き先　<b>" + trip.dest.name + "</b><br>"
+      + (trip.mode === "railback" ? "電車　<b>" : "お迎え　<b>")
+      + minToHHMM(trip.mode === "railback" ? trip.rail.train.dep : (trip.pickup || trip.board))
+      + "</b>";
+    $("cx-ask").innerHTML = "よろしいですか？"
+      + (booked ? "<span>取り消すと車は来ません。</span>" : "");
+    $("btn-cancel-yes").textContent = booked ? "取り消す" : "やめる";
+    show("cancel");
+  });
+  $("btn-cancel-no").addEventListener("click", function () {
+    if (trip) { scheduleAfterBooking(); } else { renderHome(); }
+  });
+  $("btn-cancel-yes").addEventListener("click", function () {
     trip = null; clearTimers(); renderHome();
   });
 
@@ -1768,6 +1983,10 @@
   // 実時刻では乗車まで30分待つこともあり、そのままでは進行を見せられない。
   // 仮想日時の10秒送りとは別に、手で進められるようにしておく。
   $("btn-demo-board").addEventListener("click", function () { if (trip) { board(); } });
+  $("btn-demo-next").addEventListener("click", function () {
+    if (trip && trip.stages) { enterStage((trip.stage || 0) + 1); }
+    else if (trip) { board(); }
+  });
   $("btn-demo-arrive").addEventListener("click", function () { if (trip) { arrive(); } });
 
   Array.prototype.forEach.call(document.querySelectorAll(".demo .btns button[data-delay]"), function (b) {
