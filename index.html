@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>いつもの外出 — デマンド交通よやく</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="feed-data.js?v=4ceff3d9"></script>
 <style>
   :root{
@@ -166,6 +168,10 @@
   .msg{margin-top:14px;padding:12px 14px;border-radius:10px;font-size:17px;font-weight:700;
     background:#fdeaea;color:#6b1414;border:2px solid #d9a5a5}
   .msg.ok{background:#e7f4ec;color:#14532d;border-color:#8fc3a5}
+  #home-map{height:260px;border:2px solid var(--line);border-radius:10px;overflow:hidden}
+  .maphint{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .maphint b{color:var(--ink);font-size:15px}
+  .leaflet-container{font:inherit}
   .setup input[type=tel],.setup input[type=text]{width:100%;padding:10px;font-size:16px;
     font-family:inherit;border:2px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
   /* 行き先は自由に足し引きできる。事業者や家庭ごとに要るものは違う。 */
@@ -212,6 +218,24 @@
   .demo .btns button{flex:1 1 auto;padding:9px 12px;font-size:13px;font-family:inherit;cursor:pointer;
     background:#eef1f4;border:1px solid var(--line);border-radius:8px;color:var(--ink)}
   @media(max-width:900px){.phone{flex:1 1 100%}}
+  /* 実機の幅では「友達に会いに行く」が折り返していた。文字は大きいままで収める。 */
+  @media(max-width:430px){
+    .page{padding:12px 10px 40px}
+    .screen{padding:14px}
+    .bigbtn{font-size:25px;padding:16px 15px;gap:12px;margin-bottom:10px}
+    .bigbtn .ico{font-size:32px}
+    .bigbtn .dest{font-size:15px;margin-top:2px}
+    .status .big{font-size:22px}
+    .status .sub{font-size:16px}
+    .qdest{font-size:31px}
+    .journey .t{font-size:21px}
+    .journey .place b{font-size:21px}
+    .journey .leg{font-size:16px}
+    .count .n{font-size:64px}
+    .count .leave{font-size:21px}
+    .ride .dest{font-size:33px}
+    .items label{font-size:21px}
+  }
 </style>
 </head>
 <body>
@@ -246,6 +270,9 @@
           行き先は自由に足したり消したりできます（× で削除）。</p>
         <label for="in-setup-phone">利用者の電話番号（この番号に設定を結びつけます）</label>
         <input type="tel" id="in-setup-phone" inputmode="numeric" placeholder="09012345678">
+        <label>自宅の場所（地図をタップしてピンを動かします）</label>
+        <div id="home-map"></div>
+        <div class="maphint" id="home-map-hint">地図を読み込んでいます…</div>
         <label for="in-home">自宅の最寄りの乗り場（出発地になります）</label>
         <select id="in-home"></select>
         <label>行き先のボタン（並んだ順に表示されます）</label>
@@ -520,7 +547,7 @@
     if (!w) { return { ok: false, why: "closed" }; }
     var pickup = Math.max(minsOf(n) + RULE.priorNoticeMin, w.start);
     if (pickup > w.end) { return { ok: false, why: "late", window: w }; }
-    return { ok: true, window: w, pickup: pickup, leave: pickup - WALK_MIN };
+    return { ok: true, window: w, pickup: pickup, leave: pickup - homeWalkMin() };
   }
   function rideMinutes(from, to) {
     var km = distanceM(from.lat, from.lon, to) / 1000 * DETOUR;
@@ -729,7 +756,7 @@
       var target = best.dep - PLATFORM_MARGIN_MIN - walk - access.ride - BOARD_GRACE_MIN;
       var pickup = Math.max(p.pickup, target);
       access.pickup = pickup;
-      access.leave = pickup - WALK_MIN;
+      access.leave = pickup - homeWalkMin();
       access.arrive = pickup + BOARD_GRACE_MIN + access.ride;
     }
 
@@ -847,6 +874,10 @@
   function railJourney(r) {
     var rows = [];
     if (r.access.mode === "demand") {
+      if (cfg && cfg.home && r.access.pickup - r.access.leave > 0) {
+        rows.push({ t: r.access.leave, place: "自宅", note: "家を出る" });
+        rows.push({ leg: "🚶 歩いて " + (r.access.pickup - r.access.leave) + "分" });
+      }
       rows.push({ t: r.access.pickup, place: r.from.name, note: "お迎え" });
       rows.push({ leg: "🚐 デマンド交通で " + (r.access.arrive - r.access.pickup)
         + "分　🚶 歩いて " + r.walk + "分" });
@@ -889,12 +920,22 @@
     return rows;
   }
 
+  // 自宅を登録していれば、家を出るところから見せる。
+  // 徒歩時間が人によって違うので、ここを省くと時刻の根拠が見えない。
+  function homeLeg(t) {
+    if (!cfg || !cfg.home || t.dir !== "go") { return []; }
+    var walk = t.pickup - t.leave;
+    if (walk <= 0) { return []; }
+    return [{ t: t.leave, place: "自宅", note: "家を出る" },
+            { leg: "🚶 歩いて " + walk + "分" }];
+  }
+
   function demandJourney(t) {
-    return [
+    return homeLeg(t).concat([
       { t: t.pickup, place: t.origin.name, note: "お迎え" },
       { leg: "🚐 デマンド交通で " + (t.arrive - t.pickup) + "分" },
       { t: t.arrive, place: t.dest.name, note: "到着", end: true }
-    ];
+    ]);
   }
 
   // ── 設定（初回登録）─────────────────────────────────
@@ -933,8 +974,12 @@
   }
   // デモの初期状態。実運用なら空から家族が作る。
   function defaultConfig() {
+    // デモの自宅は、乗り場から 200m ほど離れた地点に置く。
+    // 乗り場と同じ座標にすると徒歩時間が出ず、この設定の意味が見えないため。
+    var base = stopById(stopIdByName("ＧＲガレージ多摩")) || F.stops[0];
     return {
       phone: DEMO_PHONE,
+      home: { lat: +(base.lat + 0.0016).toFixed(6), lon: +(base.lon + 0.0008).toFixed(6) },
       homeStopId: stopIdByName("ＧＲガレージ多摩") || F.stops[0].id,
       places: DEFAULT_PLACES.map(function (d) {
         return { icon: d.icon, label: d.label, items: d.items,
@@ -1506,6 +1551,77 @@
     return out;
   }
 
+  // ── 自宅の位置 ──────────────────────────────────────
+  // 「家を出る時刻」は乗り場までの徒歩時間で決まる。全員一律5分では実態に合わないので、
+  // 自宅の座標を登録して実距離から出す。地図が使えないときは既定値に戻すだけ。
+  var homeMap = null, homeMarker = null;
+
+  function homeWalkMin() {
+    if (!cfg || !cfg.home) { return WALK_MIN; }
+    var st = stopById(cfg.homeStopId);
+    if (!st) { return WALK_MIN; }
+    return Math.max(2, Math.ceil(distanceM(cfg.home.lat, cfg.home.lon, st) / WALK_M_PER_MIN));
+  }
+
+  function stopsCenter() {
+    var la = 0, lo = 0;
+    F.stops.forEach(function (st) { la += st.lat; lo += st.lon; });
+    return { lat: la / F.stops.length, lon: lo / F.stops.length };
+  }
+
+  // ピンを動かすたびに、最寄りの乗り場と徒歩時間を出し直す
+  function updateHomeHint(lat, lon) {
+    var nr = nearestStop(lat, lon);
+    var hint = $("home-map-hint");
+    if (!nr) { hint.textContent = "近くに乗り場が見つかりません。"; return; }
+    var walk = Math.max(2, Math.ceil(nr.dist / WALK_M_PER_MIN));
+    $("in-home").value = nr.stop.id;
+    hint.innerHTML = "最寄りの乗り場　<b>" + nr.stop.name + "</b>"
+      + "（" + fmtDist(nr.dist) + "・歩いて " + walk + "分）<br>"
+      + "この徒歩時間で「家を出る時刻」を出します。別の乗り場にしたいときは下から選び直せます。";
+  }
+
+  function initHomeMap(fromCfg) {
+    var hint = $("home-map-hint");
+    if (typeof L === "undefined") {
+      $("home-map").hidden = true;
+      hint.textContent = "地図を読み込めませんでした。下の一覧から乗り場を選んでください。";
+      return;
+    }
+    var start = (fromCfg && fromCfg.home)
+      || (fromCfg && stopById(fromCfg.homeStopId))
+      || stopsCenter();
+    if (!homeMap) {
+      homeMap = L.map("home-map", { attributionControl: true })
+        .setView([start.lat, start.lon], 16);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(homeMap);
+      // 乗り場も薄く置く。どこに乗り場があるか見えないと家を置きようがない。
+      F.stops.forEach(function (st) {
+        L.circleMarker([st.lat, st.lon], {
+          radius: 4, color: "#0a5ca8", weight: 1, fillOpacity: 0.55
+        }).bindTooltip(st.name).addTo(homeMap);
+      });
+      homeMarker = L.marker([start.lat, start.lon], { draggable: true }).addTo(homeMap);
+      homeMarker.on("dragend", function () {
+        var p = homeMarker.getLatLng();
+        updateHomeHint(p.lat, p.lng);
+      });
+      homeMap.on("click", function (e) {
+        homeMarker.setLatLng(e.latlng);
+        updateHomeHint(e.latlng.lat, e.latlng.lng);
+      });
+    } else {
+      homeMap.setView([start.lat, start.lon], 16);
+      homeMarker.setLatLng([start.lat, start.lon]);
+    }
+    updateHomeHint(start.lat, start.lon);
+    // 非表示のまま作ると大きさを取り違えるので、表示後に測り直す
+    setTimeout(function () { homeMap.invalidateSize(); }, 60);
+  }
+
   // 設定画面を今の内容で開く。呼ぶのは家族・窓口の人。
   function openSetup() {
     buildSetup(cfg);
@@ -1514,6 +1630,7 @@
     if (cfg) { $("in-home").value = cfg.homeStopId; }
     $("btn-setup-cancel").hidden = !cfg;
     show("setup");
+    initHomeMap(cfg);
   }
   $("btn-add-place").addEventListener("click", function () {
     $("setup-places").appendChild(placeRow(null));
@@ -1532,8 +1649,10 @@
       message("setup-msg", "電話番号を10桁以上で入力してください。");
       return;
     }
+    var pin = homeMarker ? homeMarker.getLatLng() : null;
     cfg = {
       phone: phone,
+      home: pin ? { lat: +pin.lat.toFixed(6), lon: +pin.lng.toFixed(6) } : (cfg && cfg.home) || null,
       homeStopId: $("in-home").value,
       places: collectRows($("setup-places"), stopById, " へ行く"),
       rails: RAIL ? collectRows($("setup-rails"), railStopById, " へ行く") : []
@@ -1600,7 +1719,7 @@
         "<code>booking_rules.prior_notice_duration_min</code> = <b>" + RULE.priorNoticeMin + "分前</b>"],
       ["お迎え／家を出る時刻",
         p.ok ? "いま＋" + RULE.priorNoticeMin + "分 → <b>" + minToHHMM(p.pickup) + "</b> 乗車、"
-             + "徒歩" + WALK_MIN + "分を引いて <b>" + minToHHMM(p.leave) + "</b> 出発"
+             + "徒歩" + homeWalkMin() + "分を引いて <b>" + minToHHMM(p.leave) + "</b> 出発"
              : "算出不可（デマンド交通は本日利用できません）"],
       ["八高線は今日走るか",
         RAIL ? "<code>calendar.txt</code>（JR側）<br>" + jpDate(n) + " → "
