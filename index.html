@@ -185,6 +185,13 @@
 
   /* ── 審査員・開発者向けパネル ────────────────────────────── */
   .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:18px}
+  /* 審査員向けの根拠パネル。提出時は畳んでおき、?data=1 で出す。 */
+  .page:not(.showdata) .evidence{display:none}
+  .page:not(.showdata) .cols{justify-content:center}
+  .page:not(.showdata) .side{flex:0 0 340px}
+  /* 根拠パネルを畳んだときは、端末に近い幅で中央に置く。
+     横に伸びきるとボタンが間延びして、実機の見え方と離れてしまう。 */
+  .page:not(.showdata) .phone{flex:0 1 440px}
   .panel h2{font-size:16px;margin:0 0 4px}
   .panel .lead{font-size:13px;color:var(--muted);margin:0 0 14px}
   .kv{width:100%;border-collapse:collapse;font-size:13px}
@@ -207,9 +214,9 @@
 <div class="page">
   <p class="intro">
     <b>いつもの外出 — デマンド交通よやく（プロトタイプ）</b><br>
-    公共交通オープンデータチャレンジ2026 ／ <b>3つのODPTデータ</b>で動作
-    ── 瑞穂町デマンド交通「チョイソコみずほまち」(GTFS-Flex) ＋ 瑞穂町コミュニティバス (GTFS)
-    ＋ JR東日本 八高線 (GTFS)。左が利用者の画面、右がデータの根拠。
+    公共交通オープンデータチャレンジ2026 ／ <b>3つのODPTデータ</b>で動作<br>
+    出典：瑞穂町デマンド交通「チョイソコみずほまち」(GTFS-Flex)、瑞穂町コミュニティバス (GTFS)、
+    JR東日本 八高線 (GTFS・運行情報)／公共交通オープンデータセンター（CC BY 4.0）
   </p>
 
   <div class="cols">
@@ -326,13 +333,13 @@
 
     <!-- ══ 審査員・開発者向け ═══════════════════════════════ -->
     <div class="side">
-      <div class="panel">
+      <div class="panel evidence">
         <h2>この画面を動かしている実データ</h2>
         <p class="lead">すべて ODPT の公開データから算出。固定値の埋め込みはありません。</p>
         <table class="kv"><tbody id="kv-body"></tbody></table>
       </div>
 
-      <div class="panel">
+      <div class="panel evidence">
         <h2>2つのデータを繋いで初めて出せるもの</h2>
         <p class="lead">単独のフィードでは絶対に作れない部分。</p>
         <table class="kv"><tbody>
@@ -356,7 +363,7 @@
         </tbody></table>
       </div>
 
-      <div class="panel">
+      <div class="panel evidence">
         <h2>データが埋まれば、ここまで届く</h2>
         <p class="lead">現状の制約と、その原因。</p>
         <table class="kv"><tbody>
@@ -1649,6 +1656,11 @@
     cfg = null; trip = null; clearTimers(); buildSetup(null);
     message("phone-msg", ""); show("phone"); renderKV();
   });
+
+  // 提出時は利用者の画面だけを見せる。?data=1 を付けると根拠パネルが出る。
+  if (/[?&]data=1(&|$)/.test(location.search)) {
+    document.querySelector(".page").classList.add("showdata");
+  }
 
   // ── 起動 ─────────────────────────────────────────
   // デモなので電話番号は登録済みとして扱い、最初から使える状態で開く。
