@@ -73,6 +73,21 @@
   .danger{flex:1;border:3px solid #8a1f1f;background:#fff;color:#8a1f1f;border-radius:16px;
     padding:24px 10px;font-size:26px;font-weight:800;font-family:inherit;cursor:pointer}
 
+  /* 取り消したあと黙ってホームに戻ると、消えたのか分からない */
+  .donenotice{background:#e7f4ec;border:3px solid var(--back);border-radius:14px;
+    padding:12px 16px;margin-bottom:14px;font-size:20px;font-weight:800;color:#14532d}
+  .itemhint{font-size:15px;color:var(--muted);margin:0 0 6px;font-weight:600}
+  /* 確認していない持ち物があるときの注意 */
+  .warn{background:#fdf1e2;border:3px solid var(--warn);border-radius:14px;
+    padding:13px 16px;margin-bottom:14px;font-size:19px;font-weight:800;color:#6b3708}
+  .warn span{display:block;font-size:22px;margin-top:5px}
+
+  .arrived{align-items:center;justify-content:center;text-align:center}
+  .arrivedtitle{font-size:40px;font-weight:800;color:var(--back)}
+  .arrivedsub{font-size:26px;font-weight:700;margin-top:8px}
+  .arrived .where{margin-top:26px;width:100%}
+  .arrived .cancel{margin-top:26px}
+
   .waiting{align-items:center;justify-content:center;text-align:center}
   .waittitle{font-size:34px;font-weight:800;margin-top:26px}
   .waitsub{font-size:21px;color:var(--muted);margin-top:10px}
@@ -321,6 +336,7 @@
 
       <!-- ホーム：運行状況 ＋ 行き先ボタン -->
       <section class="screen" id="s-home">
+        <div class="donenotice" id="home-notice" hidden></div>
         <div class="status" id="status">
           <div class="big" id="st-big"></div>
           <div class="sub" id="st-sub"></div>
@@ -365,9 +381,11 @@
         <div class="dn-sub" id="dn-sub"></div>
         <div class="where" id="dn-where"></div>
         <div class="items" id="dn-items" hidden>
-          <h3>忘れ物の確認</h3>
+          <h3 id="dn-itemhead">忘れ物の確認</h3>
+          <div class="itemhint" id="dn-itemhint"></div>
           <div id="dn-itemlist"></div>
         </div>
+        <div class="warn" id="dn-itemwarn" hidden></div>
         <div class="wcnote" id="dn-wc" hidden></div>
         <a class="tel" id="dn-tel" href="#">
           <span class="lb">困ったときは電話</span>
@@ -376,11 +394,19 @@
         <button class="cancel" id="btn-cancel">やめる</button>
       </section>
 
+      <!-- 到着。黙ってホームへ戻さず、終わったことを伝える -->
+      <section class="screen arrived" id="s-arrived">
+        <div class="arrivedtitle">到着しました</div>
+        <div class="arrivedsub">お疲れさまでした</div>
+        <div class="where" id="ar-where"></div>
+        <button class="cancel" id="btn-arrived-ok">はじめの画面へ</button>
+      </section>
+
       <!-- 予約中。押したあと何も起きないと不安になるので、必ず出す -->
       <section class="screen waiting" id="s-wait">
         <div class="spinner" aria-hidden="true"></div>
-        <div class="waittitle">予約しています</div>
-        <div class="waitsub">しばらくお待ちください</div>
+        <div class="waittitle" id="wait-title">予約しています</div>
+        <div class="waitsub" id="wait-sub">しばらくお待ちください</div>
       </section>
 
       <!-- 取り消しの確認。押し間違いで予約が消えないように一度止める -->
@@ -403,6 +429,7 @@
           <div class="when" id="rd-when"></div>
         </div>
         <div class="ridesub" id="rd-sub" hidden></div>
+        <div class="warn" id="rd-warn" hidden></div>
         <h3 class="nexth" id="rd-nexth" hidden>このあと</h3>
         <div id="rd-where"></div>
         <a class="tel" id="rd-tel" href="#">
@@ -491,6 +518,7 @@
         <label>予約したあとの進行（デモ用）</label>
         <div class="btns">
           <button id="btn-demo-board">乗車したことにする</button>
+          <button id="btn-demo-near">家を出る3分前にする</button>
           <button id="btn-demo-next">次の段階へ</button>
           <button id="btn-demo-arrive">到着したことにする</button>
         </div>
@@ -1128,7 +1156,8 @@
   var trip = null, timer = null, pending = [];
   function $(id) { return document.getElementById(id); }
   function show(id) {
-    ["phone", "setup", "home", "pick", "confirm", "wait", "cancel", "done", "riding"].forEach(function (k) {
+    ["phone", "setup", "home", "pick", "confirm", "wait", "cancel", "done", "riding",
+     "arrived"].forEach(function (k) {
       $("s-" + k).classList.toggle("on", k === id);
     });
   }
@@ -1148,6 +1177,8 @@
   // ── ホーム ────────────────────────────────────────
   function renderHome() {
     var n = now(), p = plan(n), st = $("status");
+    $("home-notice").hidden = !homeNotice;
+    if (homeNotice) { $("home-notice").textContent = homeNotice; homeNotice = null; }
     var home = stopById(cfg.homeStopId);
 
     // デマンド交通が使えない日は、行き先ごとにバス経路を探す
@@ -1440,6 +1471,47 @@
     }
   }
 
+  // 持ち物の確認は「家を出る直前」が使いどころ。予約した直後に確認しても
+  // 置き直してまた忘れる。時間が近づくにつれて出し方を強め、未確認のまま
+  // 乗ってしまったら乗車後に知らせる。
+  function uncheckedItems() {
+    var out = [];
+    Array.prototype.forEach.call($("dn-itemlist").querySelectorAll("label"), function (lb) {
+      var cb = lb.querySelector("input");
+      if (cb && !cb.checked) { out.push(lb.querySelector("span").textContent); }
+    });
+    return out;
+  }
+  function itemWarnHtml(list) {
+    return "確認していない持ち物があります<span>" + list.join("　／　") + "</span>";
+  }
+  function refreshItemState(left) {
+    if (!trip || !trip.items || !trip.items.length) {
+      $("dn-itemwarn").hidden = true;
+      return;
+    }
+    var rest = uncheckedItems();
+    var head = $("dn-itemhead"), hint = $("dn-itemhint");
+    if (!rest.length) {
+      head.textContent = "忘れ物の確認";
+      hint.textContent = "ぜんぶ確認できました。";
+    } else if (left > 10) {
+      head.textContent = "忘れ物の確認";
+      hint.textContent = "家を出る前に確認してください。";
+    } else if (left > 0) {
+      head.textContent = "そろそろ確認してください";
+      hint.textContent = "あと " + left + "分で家を出ます。のこり " + rest.length + "つ。";
+    } else {
+      head.textContent = "家を出る時間です";
+      hint.textContent = "のこり " + rest.length + "つ、確認してください。";
+    }
+    // 出る時刻が近いのに未確認なら、リストの外にも出す
+    var warn = $("dn-itemwarn");
+    var show = rest.length > 0 && left <= 5;
+    warn.hidden = !show;
+    if (show) { warn.innerHTML = itemWarnHtml(rest); }
+  }
+
   function renderDone() {
     if (!trip) { return; }
     var isBus = trip.mode === "bus";
@@ -1467,11 +1539,15 @@
       (trip.items || []).forEach(function (name) {
         var lb = document.createElement("label");
         var cb = document.createElement("input"); cb.type = "checkbox";
+        cb.addEventListener("change", function () {
+          refreshItemState(trip ? trip.leave - minsOf(now()) : 99);
+        });
         var sp = document.createElement("span"); sp.textContent = name;
         lb.appendChild(cb); lb.appendChild(sp); list.appendChild(lb);
       });
       $("dn-items").hidden = !(trip.items && trip.items.length);
     }
+    refreshItemState(left);
     $("btn-cancel").textContent =
       (isBus || (trip.mode === "rail" && trip.rail.access.mode === "bus"))
         ? "やめる" : "予約を取り消す";
@@ -1600,6 +1676,10 @@
       + minToHHMM(st.at) + "ごろ";
     $("rd-sub").textContent = st.sub || "";
     $("rd-sub").hidden = !st.sub;
+    // 乗ってしまったあとで初めて気づけるように、最初の段階だけ出す
+    var rest = (trip.stage === 0 && trip.items && trip.items.length) ? uncheckedItems() : [];
+    $("rd-warn").hidden = !rest.length;
+    if (rest.length) { $("rd-warn").innerHTML = itemWarnHtml(rest); }
     $("rd-nexth").hidden = !st.rows;
     if (st.rows) { renderJourney($("rd-where"), st.rows); $("rd-where").classList.add("compact"); }
     else { $("rd-where").className = ""; $("rd-where").innerHTML = ""; }
@@ -1628,7 +1708,17 @@
     trip.stages = journeyStages(trip);
     enterStage(0);
   }
-  function arrive() { trip = null; clearTimers(); renderHome(); }
+  function arrive() {
+    var t = trip;
+    trip = null;
+    clearTimers();
+    if (!t) { renderHome(); return; }
+    $("ar-where").innerHTML = "行き先　<b>" + t.dest.name + "</b><br>到着　<b>"
+      + minToHHMM(t.stages ? t.stages[t.stages.length - 1].at : t.arrive) + "</b>";
+    // 自動では消さない。着いたばかりの人が読み終える前に画面が変わると、
+    // 何が起きたのか分からなくなる。戻るのは本人が押したときだけ。
+    show("arrived");
+  }
 
   // ── 初回設定画面 ──────────────────────────────────
   function stopOptions(sel, list, noneLabel) {
@@ -1877,6 +1967,13 @@
   }
 
   var BOOKING_WAIT_MS = 5000;   // 押したあと何も起きないと不安になるので必ず挟む
+  var homeNotice = null;        // ホームに一度だけ出す知らせ
+
+  function showWait(title, sub) {
+    $("wait-title").textContent = title;
+    $("wait-sub").textContent = sub || "しばらくお待ちください";
+    show("wait");
+  }
 
   $("btn-yes").addEventListener("click", function () {
     if (!trip) { return; }
@@ -1885,7 +1982,7 @@
     }
     clearTimers();
     if (usesDemand(trip)) {
-      show("wait");
+      showWait("予約しています");
       pending.push(setTimeout(scheduleAfterBooking, BOOKING_WAIT_MS));
     } else {
       // バスと電車だけの予定は予約が要らないので待たせない
@@ -1911,8 +2008,23 @@
   $("btn-cancel-no").addEventListener("click", function () {
     if (trip) { scheduleAfterBooking(); } else { renderHome(); }
   });
+  $("btn-arrived-ok").addEventListener("click", function () { clearTimers(); renderHome(); });
   $("btn-cancel-yes").addEventListener("click", function () {
-    trip = null; clearTimers(); renderHome();
+    if (!trip) { renderHome(); return; }
+    var booked = usesDemand(trip);
+    trip = null;
+    clearTimers();
+    if (booked) {
+      // 予約と同じで、押したあと何も起きない時間を作らない
+      showWait("予約を取り消しています");
+      pending.push(setTimeout(function () {
+        homeNotice = "予約を取り消しました";
+        renderHome();
+      }, BOOKING_WAIT_MS));
+    } else {
+      homeNotice = "予定をやめました";
+      renderHome();
+    }
   });
 
   // ── データ根拠パネル ────────────────────────────────
@@ -1983,6 +2095,18 @@
   // 実時刻では乗車まで30分待つこともあり、そのままでは進行を見せられない。
   // 仮想日時の10秒送りとは別に、手で進められるようにしておく。
   $("btn-demo-board").addEventListener("click", function () { if (trip) { board(); } });
+  // 予約は必ず30分先なので、実時間で待たないと「家を出る直前」の表示が見られない。
+  // 予約を保ったまま時計だけ進める。
+  $("btn-demo-near").addEventListener("click", function () {
+    if (!trip) { return; }
+    var d = now(), m = Math.max(0, trip.leave - 3);
+    d.setHours(Math.floor(m / 60), m % 60, 0, 0);
+    virtualNow = d;
+    $("in-now").value = ymd(d).replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3")
+      + "T" + String(d.getHours()).padStart(2, "0") + ":"
+      + String(d.getMinutes()).padStart(2, "0");
+    renderDone();
+  });
   $("btn-demo-next").addEventListener("click", function () {
     if (trip && trip.stages) { enterStage((trip.stage || 0) + 1); }
     else if (trip) { board(); }
