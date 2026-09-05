@@ -192,6 +192,10 @@
   /* 根拠パネルを畳んだときは、端末に近い幅で中央に置く。
      横に伸びきるとボタンが間延びして、実機の見え方と離れてしまう。 */
   .page:not(.showdata) .phone{flex:0 1 440px}
+  /* 資料用の切り出し。アプリだけを撮るために周りを落とす（?bare=1） */
+  .page.bare .intro, .page.bare .side{display:none}
+  .page.bare{padding:0}
+  .page.bare .phone{flex:1 1 100%;border:none;border-radius:0;box-shadow:none}
   .panel h2{font-size:16px;margin:0 0 4px}
   .panel .lead{font-size:13px;color:var(--muted);margin:0 0 14px}
   .kv{width:100%;border-collapse:collapse;font-size:13px}
@@ -649,7 +653,14 @@
   if (RAIL) {
     fetch("realtime.json", { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { if (j) { RT = j; if (cfg) { renderHome(); } renderKV(); } })
+      // 遅れて届くので、ホームを見ているときだけ描き直す。
+      // 確認画面などを開いている最中に引き戻さないため。
+      .then(function (j) {
+        if (!j) { return; }
+        RT = j;
+        if (cfg && $("s-home").classList.contains("on")) { renderHome(); }
+        renderKV();
+      })
       .catch(function () { /* 取れなくても静的な時刻表で動く */ });
   }
 
@@ -1661,6 +1672,9 @@
   if (/[?&]data=1(&|$)/.test(location.search)) {
     document.querySelector(".page").classList.add("showdata");
   }
+  if (/[?&]bare=1(&|$)/.test(location.search)) {
+    document.querySelector(".page").classList.add("bare");
+  }
 
   // ── 起動 ─────────────────────────────────────────
   // デモなので電話番号は登録済みとして扱い、最初から使える状態で開く。
@@ -1675,6 +1689,47 @@
   else { message("phone-msg", ""); show("phone"); }
   renderKV();
   setInterval(renderKV, 30000);
+
+  // スクリーンショットと録画のための直リンク。?now=<日時>&shot=<画面>
+  // 実時刻のまま撮ると受付終了後や運休日に当たって、意図した画面が出ないため。
+  (function deepLink() {
+    var q = {};
+    location.search.replace(/^\?/, "").split("&").forEach(function (kv) {
+      var i = kv.indexOf("=");
+      if (i > 0) { q[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1)); }
+    });
+    if (q.now) { applyNow(q.now); }
+    if (q.delay) { demoDelay = q.delay === "suspend" ? "suspend" : parseInt(q.delay, 10); renderHome(); }
+    if (!q.shot) { return; }
+    function byText(t) {
+      var all = document.querySelectorAll("#home-buttons button");
+      for (var i = 0; i < all.length; i++) {
+        if (all[i].textContent.indexOf(t) >= 0) { return all[i]; }
+      }
+      return null;
+    }
+    var STEPS = {
+      "home": [],
+      "confirm-rail": ["電車で出かける"],
+      "done-rail": ["電車で出かける", "@yes"],
+      "confirm-hospital": ["病院へ行く"],
+      "done-hospital": ["病院へ行く", "@yes"],
+      "riding-rail": ["電車で出かける", "@yes", "@board"],
+      "confirm-grandkid": ["孫に会いに行く"],
+      "setup": ["@settings"],
+      "phone": ["@phone"]
+    };
+    (STEPS[q.shot] || []).forEach(function (step) {
+      if (step === "@yes") { $("btn-yes").click(); }
+      else if (step === "@board") { board(); }
+      else if (step === "@settings") { openSetup(); }
+      else if (step === "@phone") { cfg = null; show("phone"); }
+      else {
+        var b = byText(step);
+        if (b && !b.disabled) { b.click(); }
+      }
+    });
+  })();
 })();
 </script>
 </body>

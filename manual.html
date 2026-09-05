@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>いつもの外出 — 使い方</title>
+<style>
+  :root{
+    --ink:#15191e; --muted:#5b6672; --line:#d4dae0; --bg:#eef1f4; --card:#fff;
+    --go:#0a5ca8; --back:#1d7a44; --bus:#8a4b0c; --warn:#a5560a; --navy:#12395c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+    line-height:1.75;-webkit-text-size-adjust:100%}
+  .wrap{max-width:860px;margin:0 auto;padding:0 20px 80px}
+
+  header{background:var(--navy);color:#fff;margin-bottom:32px}
+  header .inner{max-width:860px;margin:0 auto;padding:38px 20px 34px}
+  header h1{font-size:32px;margin:0 0 8px;line-height:1.35}
+  header p{margin:0;font-size:16px;color:#bfd6ee}
+  header a{color:#fff}
+
+  nav{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:18px 22px;margin-bottom:32px}
+  nav h2{font-size:15px;margin:0 0 10px;color:var(--muted)}
+  nav ol{margin:0;padding-left:1.4em;columns:2;column-gap:28px}
+  nav li{margin-bottom:5px;font-size:15px;break-inside:avoid}
+  nav a{color:var(--go)}
+
+  h2.sec{font-size:25px;margin:44px 0 6px;padding-top:12px;scroll-margin-top:16px}
+  h2.sec .n{display:inline-block;min-width:1.7em;color:var(--go)}
+  h3{font-size:18px;margin:26px 0 6px}
+  p{margin:10px 0}
+  ul,ol.steps{margin:10px 0;padding-left:1.5em}
+  li{margin-bottom:6px}
+
+  figure{margin:18px 0;text-align:center}
+  figure img{max-width:100%;width:300px;border:1px solid var(--line);border-radius:12px;
+    background:#fff}
+  figure figcaption{font-size:13px;color:var(--muted);margin-top:8px}
+  .two{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+  .two figure{margin:8px 0}
+
+  .note{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px 20px;margin:18px 0}
+  .note.warn{background:#fdf3e6;border-color:var(--warn)}
+  .note.bus{background:#fdf3e6;border-color:var(--bus)}
+  .note b{display:block;margin-bottom:4px}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:15px;background:var(--card)}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#e8edf2;font-weight:700;width:32%}
+  tr:last-child td,tr:last-child th{border-bottom:none}
+
+  code{background:#e8edf2;padding:2px 6px;border-radius:4px;font-size:13px}
+  footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);
+    font-size:13px;color:var(--muted)}
+  footer a{color:var(--go)}
+  @media(max-width:640px){ nav ol{columns:1} header h1{font-size:25px} h2.sec{font-size:21px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="inner">
+    <h1>いつもの外出 — 使い方</h1>
+    <p>交通空白地の高齢者が、行き先のボタンを1つ押すだけで出かけられるアプリです。<br>
+       アプリを開く → <a href="./">https://tyra0119.github.io/pj_call/</a></p>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav>
+  <h2>もくじ</h2>
+  <ol>
+    <li><a href="#about">このアプリについて</a></li>
+    <li><a href="#setup">はじめの設定（ご家族・窓口の方へ）</a></li>
+    <li><a href="#load">利用者の端末で読み込む</a></li>
+    <li><a href="#go">出かける</a></li>
+    <li><a href="#back">帰る</a></li>
+    <li><a href="#bus">デマンド交通がお休みの日</a></li>
+    <li><a href="#rail">電車で町の外へ</a></li>
+    <li><a href="#trouble">困ったとき</a></li>
+    <li><a href="#demo">動作を確かめる（デモ操作）</a></li>
+    <li><a href="#data">使っているデータと、できないこと</a></li>
+  </ol>
+</nav>
+
+<h2 class="sec" id="about"><span class="n">1.</span>このアプリについて</h2>
+
+<p>デマンド交通は、決まった路線を走らず、予約に応じて運行する乗り合いの交通です。
+交通空白地の切り札ですが、使うには「今日は走る日か」「受付時間内か」「何分前までに予約が要るか」を
+利用者が把握している必要があります。</p>
+
+<p>このアプリは、その判断をアプリ側が引き受けます。<strong>利用者がすることは、行き先のボタンを
+1つ押すことだけ</strong>です。デマンド交通・コミュニティバス・JR八高線のどれで行くかは、
+その日の運行状況に応じてアプリが選びます。</p>
+
+<figure>
+  <img src="manual/01-home.png" alt="行き先のボタンが並んだ最初の画面">
+  <figcaption>最初の画面。押せない日はボタンが押せないので、「押したのに来ない」が起きません。</figcaption>
+</figure>
+
+<div class="note">
+  <b>対象の地域</b>
+  東京都西多摩郡瑞穂町。デマンド交通「チョイソコみずほまち」の乗降場120か所が対象です。
+  他の地域のデータが公開されれば、同じアプリがそのまま使えます。
+</div>
+
+<h2 class="sec" id="setup"><span class="n">2.</span>はじめの設定（ご家族・窓口の方へ）</h2>
+
+<p>ご本人が設定する必要はありません。<strong>ご家族や窓口の方が、離れた場所から設定できます。</strong>
+利用者は電話番号を伝えるだけです。</p>
+
+<ol class="steps">
+  <li>アプリを開き、画面のいちばん下の「<strong>ご家族・窓口の方へ（設定）</strong>」を押します。</li>
+  <li><strong>利用者の電話番号</strong>を入れます。この番号に設定が結びつきます。</li>
+  <li><strong>自宅の最寄りの乗り場</strong>を選びます。行きの出発地になります。</li>
+  <li><strong>行き先のボタン</strong>を作ります。1件につき、絵文字・ボタンの文字・行き先の乗り場・持ち物を決めます。</li>
+  <li>「＋ 行き先を追加」で増やし、「×」で削除できます。</li>
+  <li><strong>電車の行き先</strong>も同じように設定できます。複数登録できます。</li>
+  <li>「この電話番号で保存する」を押します。</li>
+</ol>
+
+<figure>
+  <img src="manual/06-setup.png" alt="設定画面" style="width:340px">
+  <figcaption>設定画面。行き先は家庭ごとに違うので、自由に足し引きできます。</figcaption>
+</figure>
+
+<h3>持ち物は行き先ごとに決めます</h3>
+
+<p>読点（、）かカンマで区切って入れます。予約したあとの画面に、その行き先のぶんだけ出ます。</p>
+
+<table>
+  <tr><th>病院へ行く</th><td>診察券、保険証、お財布、おくすり手帳</td></tr>
+  <tr><th>買い物へ行く</th><td>お財布、エコバッグ</td></tr>
+  <tr><th>孫に会いに行く</th><td>お財布、おみやげ</td></tr>
+</table>
+
+<p>持ち物を設定していない行き先では、忘れ物の欄そのものを出しません。帰り道にも出しません。</p>
+
+<h2 class="sec" id="load"><span class="n">3.</span>利用者の端末で読み込む</h2>
+
+<p>利用者の端末でアプリを開くと、電話番号の入力画面が出ます。
+<strong>番号を入れて「設定を読み込む」を押すだけ</strong>で、設定が反映されます。</p>
+
+<figure>
+  <img src="manual/07-phone.png" alt="電話番号の入力画面">
+  <figcaption>利用者が入力するのは、この電話番号だけです。</figcaption>
+</figure>
+
+<p>機種を変えたり、アプリを入れ直したりしたときも、同じ番号を入れれば設定が戻ります。
+ハイフン入り（090-1234-5678）でもそのまま入れられます。</p>
+
+<h2 class="sec" id="go"><span class="n">4.</span>出かける</h2>
+
+<h3>行き先のボタンを押す</h3>
+<p>画面に並んでいる行き先のボタンを1つ押します。</p>
+
+<h3>内容を確かめて「はい」</h3>
+<p>お迎えの時刻と行き先が出ます。よければ「はい」、やめるときは「やめる」を押します。</p>
+
+<h3>家を出る時刻を待つ</h3>
+<figure>
+  <img src="manual/03-done.png" alt="予約後の画面" style="width:320px">
+  <figcaption>「家を出るまで あと◯分」と、その行き先の忘れ物が出ます。</figcaption>
+</figure>
+
+<p>この画面はそのまま開いておいて構いません。時間が来ると自動で切り替わります。</p>
+
+<h3>車に乗ったあと</h3>
+<figure>
+  <img src="manual/05-riding.png" alt="乗車中の画面" style="width:320px">
+  <figcaption>次にどこで降りるかと、あと何分かだけを大きく出します。</figcaption>
+</figure>
+
+<p>乗り換えがあるときは、最終目的地ではなく<strong>最初に降りる場所</strong>を出します。
+そのあとの道のりは下に小さく並びます。</p>
+
+<h2 class="sec" id="back"><span class="n">5.</span>帰る</h2>
+
+<p>「自宅へ帰る」を押します。出発地は、位置情報から探します。</p>
+
+<table>
+  <tr><th>駅から800m以内</th><td>その駅から電車で帰る道のりを組み立てます</td></tr>
+  <tr><th>乗り場から300m以内</th><td>その乗り場から帰る道のりを組み立てます</td></tr>
+  <tr><th>それより遠いとき</th><td>近い順に並べた一覧から、今いる場所を選びます</td></tr>
+  <tr><th>位置情報が使えないとき</th><td>行きに降りた場所を使うか、一覧から選びます</td></tr>
+</table>
+
+<div class="note">
+  <b>位置情報だけで決めません</b>
+  GPSは屋内や建物の陰で数百メートルずれることがあります。近いときだけ提案し、
+  はっきりしないときは選んでいただく作りにしています。
+</div>
+
+<h2 class="sec" id="bus"><span class="n">6.</span>デマンド交通がお休みの日</h2>
+
+<p>瑞穂町のデマンド交通は<strong>木曜と日曜が運休</strong>で、年末年始や祝日にも運休日があります。
+その日は、同じボタンを押すと<strong>コミュニティバスの経路に切り替わります</strong>。</p>
+
+<figure>
+  <img src="manual/04-bus-fallback.png" alt="運休日にバスへ切り替わった画面">
+  <figcaption>見出しが変わり、ボタンの色も変わります。押すボタンは同じです。</figcaption>
+</figure>
+
+<div class="note bus">
+  <b>バスは乗り換えが要ることがあります</b>
+  コミュニティバスは5つの循環路線に分かれているため、町内でも直通しない区間があります。
+  その場合は「（乗り換え1回）」と表示し、乗り換える停留所と待ち時間も画面に出します。
+  運賃は乗り換えても180円です。
+</div>
+
+<p>バスでも行けない行き先は、ボタンが灰色になり「本日は行けません」と表示されます。</p>
+
+<h2 class="sec" id="rail"><span class="n">7.</span>電車で町の外へ</h2>
+
+<p>「電車で出かける」を押すと、<strong>箱根ケ崎駅でJR八高線に乗り継ぐ</strong>道のりを出します。
+八王子・拝島・高麗川などへ行けます。</p>
+
+<figure>
+  <img src="manual/02-confirm-rail.png" alt="電車の道のりと予約締切">
+  <figcaption>お迎えから到着までを時系列で出します。待ち時間も隠しません。</figcaption>
+</figure>
+
+<h3>予約の締切</h3>
+
+<div class="note warn">
+  <b>「この電車に乗るには 10時37分 までに予約」</b>
+  デマンド交通は利用の30分前までに予約が要ります。電車の発車時刻から逆算して、
+  <strong>いつまでに予約すれば間に合うか</strong>を表示します。残り時間も出ます。
+</div>
+
+<h3>電車が遅れているとき</h3>
+
+<p>八高線の運行情報を取り込んでいます。遅れているときは、その分だけ予約の締切も後ろにずれます。
+遅れの大きさによっては、案内する電車そのものが変わることもあります。</p>
+
+<p><strong>運転見合わせのときは、電車のボタンが押せなくなります。</strong>
+予約して駅まで行ったのに電車が止まっている、を避けるためです。</p>
+
+<h2 class="sec" id="trouble"><span class="n">8.</span>困ったとき</h2>
+
+<p>予約後の画面と乗車中の画面に、<strong>予約窓口の電話番号</strong>が大きく出ています。
+そのまま押すと電話がかかります。</p>
+
+<table>
+  <tr><th>予約を取り消したい</th><td>予約後の画面のいちばん下「予約を取り消す」を押します</td></tr>
+  <tr><th>設定を変えたい</th><td>最初の画面のいちばん下「ご家族・窓口の方へ（設定）」から変更します</td></tr>
+  <tr><th>別の端末で使いたい</th><td>電話番号を入れれば同じ設定が読み込まれます</td></tr>
+</table>
+
+<div class="note warn">
+  <b>このアプリだけでは予約は確定しません</b>
+  デマンド交通のオンライン予約用URLがオープンデータに含まれていないため、
+  現在は<strong>予約窓口への電話発信まで</strong>の案内になります。
+  データにURLが加われば、そのまま予約の確定まで繋がります。
+</div>
+
+<h2 class="sec" id="demo"><span class="n">9.</span>動作を確かめる（デモ操作）</h2>
+
+<p>運休日の切り替えや電車の遅れは、その日の運行状況によっては見られません。
+画面の右（狭い画面では下）にある操作で、日時や遅延を仮に指定して確かめられます。</p>
+
+<table>
+  <tr><th>仮想の現在日時</th><td>木曜・日曜を選ぶとデマンド交通が運休し、バスに切り替わります</td></tr>
+  <tr><th>予約したあとの進行</th><td>「乗車したことにする」「到着したことにする」で画面を先へ進めます</td></tr>
+  <tr><th>八高線の遅延</th><td>5分・15分・運転見合わせを仮に指定できます</td></tr>
+  <tr><th>設定リセット</th><td>端末の設定を消して、電話番号の入力からやり直します</td></tr>
+</table>
+
+<p>アドレスの末尾に <code>?data=1</code> を付けると、画面のどの表示がどのデータの
+どの項目から出ているかを示すパネルが開きます。</p>
+
+<h2 class="sec" id="data"><span class="n">10.</span>使っているデータと、できないこと</h2>
+
+<table>
+  <tr><th>瑞穂町デマンド交通<br>「チョイソコみずほまち」</th>
+      <td>GTFS-Flex。運行日・受付時間・予約締切30分前・乗降場120か所</td></tr>
+  <tr><th>瑞穂町コミュニティバス</th>
+      <td>GTFS。停留所61・便94・5路線・運賃180円</td></tr>
+  <tr><th>JR東日本 八高線</th>
+      <td>GTFS。箱根ケ崎に停まる180便と沿線9駅</td></tr>
+  <tr><th>JR東日本<br>鉄道関連リアルタイム情報</th>
+      <td>運行情報。遅延・運休・運転見合わせ</td></tr>
+</table>
+
+<p>いずれも公共交通オープンデータセンターが公開しているもので、ライセンスは CC BY 4.0 です。</p>
+
+<h3>できないこと</h3>
+
+<ul>
+  <li><strong>予約の確定</strong> — オンライン予約用のURLがデータに含まれないため、電話発信までです。</li>
+  <li><strong>乗車・降車の検知</strong> — オープンデータに乗降のイベントが無いため、
+      お迎え時刻から一定時間で乗車したものとして画面を進めます。</li>
+  <li><strong>正確な所要時間</strong> — 乗降場の座標から出した概算です。実際の走行時間ではありません。</li>
+  <li><strong>八高線の分単位の遅れ</strong> — 八高線は列車位置情報の配信対象外のため、
+      運行情報から読み取っています。</li>
+</ul>
+
+<p>実際の運行状況は、必ず運行事業者の案内をご確認ください。</p>
+
+<footer>
+  いつもの外出 — デマンド交通よやく（プロトタイプ）／ 公共交通オープンデータチャレンジ2026<br>
+  出典：瑞穂町デマンド交通「チョイソコみずほまち」、瑞穂町コミュニティバス、
+  JR東日本 八高線・鉄道関連リアルタイム情報 ／ 公共交通オープンデータセンター（CC BY 4.0）<br>
+  <a href="./">アプリを開く</a>
+</footer>
+
+</div>
+</body>
+</html>
